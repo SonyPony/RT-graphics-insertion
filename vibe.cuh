@@ -5,17 +5,17 @@
 #include "device_launch_parameters.h"
 #include <stdint.h>
 
-namespace gpu {
-	void add(int* a, int* b, int* dest, int arrSize);
-	
-}
 
 namespace GPU {
 	class InsertionGraphicsPipeline
 	{
 		private:
+			static constexpr uint8_t SAMPLE_COUNT = 20;
+			static constexpr uint8_t PIXEL_DATA_SIZE = 4;	 // in bytes
+
 			uint8_t* m_d_segmentation;
 			uint8_t* m_d_model;
+			uint8_t* m_d_bgModel;
 			uint8_t* m_d_input;
 
 			const int m_width;
@@ -25,9 +25,16 @@ namespace GPU {
 			InsertionGraphicsPipeline(int width, int height):
 				m_width{width}, m_height(height) {}
 
+			uint8_t* initialize(uint8_t* backgroundModel);
 			void process(uint8_t* input, uint8_t* graphics, uint8_t* dest);
 	};
 	
 }
+
+/*_device__ __forceinline__ uint devRand(uint& state) {
+	constexpr uint RNG_COEFF = 4164903690U;
+	state = state * RNG_COEFF + (state >> 16);
+	return state;
+}*/
 
 #endif // !VIBE
