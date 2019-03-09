@@ -31,10 +31,4 @@ namespace GPU {
 	
 }
 
-/*_device__ __forceinline__ uint devRand(uint& state) {
-	constexpr uint RNG_COEFF = 4164903690U;
-	state = state * RNG_COEFF + (state >> 16);
-	return state;
-}*/
-
 #endif // !VIBE
