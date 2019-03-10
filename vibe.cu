@@ -36,47 +36,6 @@ __device__ __forceinline__ float devRand(RandState & state) {
 	return static_cast<float>(state) / UINT32_MAX;
 }
 
-__global__ void segment_float(uint8_t* input, uint8_t* model, uint8_t* dest, int size, int currentSample, RandState* randState) {
-	constexpr int stride = 4;	// 4 bytes strides
-	const int id = (blockDim.x * blockIdx.x + threadIdx.x);
-	const int pixel_i = id * stride;
-
-	int count = 0;
-	for (int j = 0; j < 20; j++) {
-		const int sample_i = size * j * 3;
-		float distance = norm3df(
-			(float)input[pixel_i] - model[id + sample_i],
-			(float)input[pixel_i + 1] - model[id + sample_i + size],
-			(float)input[pixel_i + 2] - model[id + sample_i + size * 2]
-		);
-
-		if (distance < 20)
-			count++;
-	}
-
-	dest[id] = 0;
-	const int isBackground = (count >= 2);
-	if (count < 2)
-		dest[id] = 255;
-
-	// update
-	RandState localRandState = randState[id];
-	float rand = devRand(localRandState) * 16;
-	if (rand == 0) {
-		for (int i = 0; i < 3; i++)
-			model[id + currentSample + i * size] = input[pixel_i + i];
-	}
-
-	rand = devRand(localRandState) * 16;
-	// todo change to something like stencil?
-	if (rand == 0) {
-		for (int i = 0; i < 3; i++)
-			model[id + currentSample + i * size] = input[pixel_i + i];
-	}
-
-	randState[id] = localRandState;
-}
-
 __global__ void segment_fast(uint8_t* input, uint8_t* model, uint8_t* dest, int size, int currentSample, RandState* randState) {
 	constexpr int stride = 4;	// 4 bytes strides
 	const int id = (blockDim.x * blockIdx.x + threadIdx.x);
@@ -95,10 +54,11 @@ __global__ void segment_fast(uint8_t* input, uint8_t* model, uint8_t* dest, int 
 			count++;
 	}
 
-	dest[id] = 0;
+	uint8_t result = 0;
 	const int isBackground = (count >= 2);
 	if (count < 2)
-		dest[id] = 255;
+		result = 255;
+	dest[id] = result;
 
 	// update
 	RandState localRandState = randState[id];
@@ -201,7 +161,6 @@ void GPU::InsertionGraphicsPipeline::process(uint8_t * input, uint8_t * graphics
 	cudaMemcpy(d_randState, randState, size * sizeof(uint32_t), cudaMemcpyHostToDevice);
 
 	segment_new<<<900, 1024>>> (d_input, m_d_model, d_dest);
-	segment_float<<<900, 1024 >>> (d_input, m_d_bgModel, d_dest, size, 0, d_randState);
 	segment_fast<<<900, 1024 >>> (d_input, m_d_bgModel, d_dest, size, 0, d_randState);
 	auto err = cudaGetLastError();
 	std::cout << cudaGetErrorName(err);
