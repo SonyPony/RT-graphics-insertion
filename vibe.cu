@@ -36,18 +36,20 @@ __device__ __forceinline__ float devRand(RandState & state) {
 	return static_cast<float>(state) / UINT32_MAX;
 }
 
-__global__ void segment_fast(uint8_t* input, uint8_t* model, uint8_t* dest, int size, int currentSample, RandState* randState) {
+__global__ void segment_faster(uint8_t* input, uint8_t* model, uint8_t* dest, int size, int currentSample, RandState* randState) {
 	constexpr int stride = 4;	// 4 bytes strides
 	const int id = (blockDim.x * blockIdx.x + threadIdx.x);
 	const int pixel_i = id * stride;
+
+	const float localInput[3] = { (float)input[pixel_i] , (float)input[pixel_i + 1] , (float)input[pixel_i + 2] };
 
 	int count = 0;
 	for (int j = 0; j < 20; j++) {
 		const int sample_i = size * j * 3;
 		float distance = norm3df(
-			(float)input[pixel_i] - model[id + sample_i],
-			(float)input[pixel_i + 1] - model[id + sample_i + size],
-			(float)input[pixel_i + 2] - model[id + sample_i + size * 2]
+			localInput[0] - model[id + sample_i],
+			localInput[1] - model[id + sample_i + size],
+			localInput[2] - model[id + sample_i + size * 2]
 		);
 
 		if (distance < 20)
@@ -65,14 +67,55 @@ __global__ void segment_fast(uint8_t* input, uint8_t* model, uint8_t* dest, int 
 	float rand = devRand(localRandState) * 16;
 	if (rand == 0) {
 		for (int i = 0; i < 3; i++)
-			model[id + currentSample + i * size] = input[pixel_i + i];
+			model[id + currentSample + i * size] = localInput[i];
 	}
 
 	rand = devRand(localRandState) * 16;
 	// todo change to something like stencil?
 	if (rand == 0) {
 		for (int i = 0; i < 3; i++)
-			model[id + currentSample + i * size] = input[pixel_i + i];
+			model[id + currentSample + i * size] = localInput[i];
+	}
+
+	randState[id] = localRandState;
+}
+
+__global__ void segment_fast(uint8_t* input, uint8_t* model, uint8_t* dest, int size, int currentSample, RandState* randState) {
+	constexpr int stride = 4;	// 4 bytes strides
+	const int id = (blockDim.x * blockIdx.x + threadIdx.x);
+	const int pixel_i = id * stride;
+
+	const float localInput[3] = { (float)input[pixel_i] , (float)input[pixel_i + 1] , (float)input[pixel_i + 2] };
+
+	int count = 0;
+	for (int j = 0; j < 20; j++) {
+		const int sample_i = size * j * 3;
+		float distance = norm3df(
+			localInput[0] - model[id + sample_i],
+			localInput[1] - model[id + sample_i + size],
+			localInput[2] - model[id + sample_i + size * 2]
+		);
+
+		if (distance < 20)
+			count++;
+	}
+
+	const int isForeground = (count < 2);
+	dest[id] = isForeground * 255;
+
+	// update
+	RandState localRandState = randState[id];
+	uint8_t rand = devRand(localRandState) * 16;
+	if (rand == 0) {
+		for (int i = 0; i < 3; i++)
+			model[id + currentSample + i * size] = localInput[i];
+	}
+
+	rand = devRand(localRandState) * 16;
+	// todo change to something like stencil?
+	if (rand == 0) {
+		for (int i = 0; i < 3; i++)
+			model[id + currentSample + i * size] = localInput[i];
 	}
 
 	randState[id] = localRandState;
@@ -161,7 +204,8 @@ void GPU::InsertionGraphicsPipeline::process(uint8_t * input, uint8_t * graphics
 	cudaMemcpy(d_randState, randState, size * sizeof(uint32_t), cudaMemcpyHostToDevice);
 
 	segment_new<<<900, 1024>>> (d_input, m_d_model, d_dest);
-	segment_fast<<<900, 1024 >>> (d_input, m_d_bgModel, d_dest, size, 0, d_randState);
+	segment_fast<<<1800, 512>>> (d_input, m_d_bgModel, d_dest, size, 0, d_randState);
+	segment_faster <<<900, 1024 >>> (d_input, m_d_bgModel, d_dest, size, 0, d_randState);
 	auto err = cudaGetLastError();
 	std::cout << cudaGetErrorName(err);
 
