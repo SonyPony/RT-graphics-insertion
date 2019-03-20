@@ -14,7 +14,6 @@ namespace GPU {
 			static constexpr uint8_t PIXEL_DATA_SIZE = 4;	 // in bytes
 
 			uint8_t* m_d_segmentation;
-			uint8_t* m_d_model;
 			uint8_t* m_d_bgModel;
 			uint8_t* m_d_input;
 
