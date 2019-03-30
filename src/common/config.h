@@ -1,0 +1,15 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <stdint.h>
+
+
+class Config {
+    public:
+        static constexpr uint8_t CHANNELS_COUNT_INPUT = 4;     // in bytes
+        // does not have alpha channel
+        static constexpr uint8_t CHANNELS_COUNT_BG_SAMPLE = 4;     // in bytes
+};
+
+#endif // !CONFIG_H
+
