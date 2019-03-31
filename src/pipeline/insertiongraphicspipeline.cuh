@@ -5,6 +5,8 @@
 #include "device_launch_parameters.h"
 #include "../common/common.h"
 #include "segmentation/vibe.cuh"
+#include "matting/globalmatting.cuh"
+
 
 namespace Gpu {
     class InsertionGraphicsPipeline
@@ -15,9 +17,12 @@ namespace Gpu {
             const int m_size;
 
             ViBe* m_segmenter;
+            GlobalSampling* m_matting;
 
+            // device buffers
             Byte* m_d_frame;
             Byte* m_d_segmentation;
+            Byte* m_d_trimap;
 
         public:
             InsertionGraphicsPipeline(int width, int height);
@@ -25,7 +30,7 @@ namespace Gpu {
 
         public:
             void initialize(Byte* frame);
-            void process(Byte* input, Byte* graphics, Byte* output);
+            void process(Byte* input, Byte* graphics, Byte* output, /*temp*/ Byte* trimap);
     };
 }
 

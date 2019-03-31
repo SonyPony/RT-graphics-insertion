@@ -1,60 +1,18 @@
 #include "globalmatting.cuh"
 #include <stdint.h>
 #include <math.h>
+#include <iostream>
 #include <limits>
+#include "helper_math.h"
 
 using namespace std;
 
-// MATTING
-    /*uint16_t* d_fgBorderX = nullptr;
-    uint16_t* d_fgBorderY = nullptr;
-    uint32_t* fgBorderPointsCount = nullptr;
+Gpu::GlobalSampling::GlobalSampling(int width, int height)
+    : m_width{ width }, m_height{ height }, m_size{ width * height } {
+    auto randState = new RandState[m_size];
+}
 
-    uint16_t* d_unknownX = nullptr;
-    uint16_t* d_unknownY = nullptr;
-    uint32_t* d_unknownCount = nullptr;
-    float* d_dists = nullptr;
-    cudaMalloc(reinterpret_cast<void**>(&fgBorderPointsCount), sizeof(uint32_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderX), size * sizeof(uint16_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderY), size * sizeof(uint16_t));
-    cudaMemset(reinterpret_cast<void*>(fgBorderPointsCount), 0, sizeof(uint16_t));
-
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownCount), sizeof(uint32_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownX), size * sizeof(uint16_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownY), size * sizeof(uint16_t));
-    cudaMemset(reinterpret_cast<void*>(d_unknownCount), 0, sizeof(uint16_t));
-
-
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
-
-    dim3 dimGrid2{ 40, 90 };
-    dim3 dimBlock2{ 32, 8 };
-
-    matting <<<dimGrid, dimBlock>>> (
-        d_trimap, d_dest, 1280, 720, d_fgBorderX, d_fgBorderY, fgBorderPointsCount,
-        d_unknownX, d_unknownY, d_unknownCount
-    );
-
-    //matting res trimap border fg = 7251 without rand
-    uint32_t count = 0, countBorder;
-    cudaMemcpy(&count, d_unknownCount, sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&countBorder, fgBorderPointsCount, sizeof(uint32_t), cudaMemcpyDeviceToHost);
-
-    cudaMalloc(reinterpret_cast<void**>(&d_dists), size * sizeof(float));
-    dim3 gridDim{
-        (unsigned int)ceil(count / 256.f)
-    };*/
-
-    /*sampleMatch <<<gridDim, 256>>> (d_trimap, d_unknownX, d_unknownY, count,
-        d_fgBorderX, d_fgBorderY, countBorder, d_dists);*/
-
-        //const int ss = 100;
-
-        /*sampleMatchWhole<<<dimGrid, dimBlock >>> (d_trimap,
-            d_fgBorderX, d_fgBorderY, countBorder, d_dists);*/
-
-__global__ void matting(
+__global__ void k_initializeSampleSet(
     uint8_t* trimap,
     uint8_t* dest,
     int width,
@@ -72,13 +30,11 @@ __global__ void matting(
     const int yOffset = y * width;
 
     constexpr uint8_t GRAY = 128;
-    if (trimap[x + yOffset] == GRAY)
-        atomicAdd(fgBorderCounter, 1);
 
     if (x == 0 || x == width - 1 || y == 0 || y == height - 1 || trimap[x + y * width] != 255)
         return;
 
-    //dest[x + y * width] = 0;
+    // creating border between unknown area and the foreground
     if (trimap[x + yOffset + 1] == GRAY || trimap[x + yOffset - 1] == GRAY
         || trimap[x + yOffset + width] == GRAY || trimap[x + yOffset - width] == GRAY) {
         int i = atomicAdd(fgBorderCounter, 1);
@@ -96,73 +52,75 @@ __global__ void matting(
 
 }
 
-__global__ void sampleMatch(uint8_t* trimap, uint16_t* unknownX, uint16_t* unknownY,
-    uint32_t unknownCount, uint16_t* fgBorderX, uint16_t* fgBorderY, uint32_t fgBorderCount,
-    float* dists) {
-    const int id = blockDim.x * blockIdx.x + threadIdx.x;
+inline __device__ float calculateAlpha(uchar3 pixelColor,
+    uchar3 sampleColor, uchar3 backgoundColor) {
+    const float3 fPixelColor = make_float3(UNPACK_V3(pixelColor));
+    const float3 fSampleColor = make_float3(UNPACK_V3(sampleColor));
+    const float3 fBackgroundColor = make_float3(UNPACK_V3(backgoundColor));
 
-    if (id >= unknownCount)
-        return;
+    float3 numerator = (fPixelColor - fBackgroundColor) * (fSampleColor - fBackgroundColor);
+    float3 denominator = fPixelColor - fBackgroundColor;
+    denominator *= denominator;
 
-    float minDist = FLT_MAX;
-    for (int i = 0; i < fgBorderCount; i++) {
-        float distance = norm3df(
-            (int)unknownX[id] - fgBorderX[i],
-            (int)unknownY[id] - fgBorderY[i], 0.f
-        );
-        minDist = min(minDist, distance);
-    }
-
-    dists[id] = minDist;
+    return Gpu::Utils::sum(numerator) / (1e-6f + Gpu::Utils::sum(denominator));
 }
 
-//using namespace cooperative_groups;
+inline __device__ float colorCost(uchar3 pixelColor,
+    uchar3 sampleColor, uchar3 backgoundColor, float alpha) {
+    const float3 fPixelColor = make_float3(UNPACK_V3(pixelColor));
+    const float3 fSampleColor = make_float3(UNPACK_V3(sampleColor));
+    const float3 fBackgroundColor = make_float3(UNPACK_V3(backgoundColor));
 
-__global__ void sampleMatchWhole(uint8_t* trimap, uint16_t* fgBorderX,
-    uint16_t* fgBorderY, const uint32_t fgBorderCount,
-    float* dists) {
+    return length(fPixelColor - (fSampleColor * alpha + fBackgroundColor * (1.f - alpha)));
+}
 
-    //grid_group g = this_grid();
-    //g.sync();
-    //grid_group g = this_grid();
+inline __device__ float distanceColor(uint2 pixelPos, uint2 samplePos) {
+    const float2 fPixelPos = make_float2(UNPACK_V2(pixelPos));
+    const float2 fsamplePos = make_float2(UNPACK_V2(samplePos));
 
-    //extern __shared__ int borderPos[];
+    return length(fsamplePos - fPixelPos);
+}
 
-    const int x = blockDim.x * blockIdx.x + threadIdx.x;
-    const int y = blockDim.y * blockIdx.y + threadIdx.y;
-    const int id = x + y * 1280; // TODO size
+__global__ void k_sampleMatch(Byte* trimap, Byte* frame, Byte* background) {
+    // propagation
 
-    uint8_t bestColR, bestColG, bestColB;
-    uint32_t bestPos;
+    // random walk
+}
 
-    /*__shared__ uint32_t bufferPos[18][16 + 2];
-    __shared__ uint32_t bufferFgCol[18][16 + 2];*/
+void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte * d_output)
+{
+    // MATTING
+    uint16_t* d_fgBorderX = nullptr;
+    uint16_t* d_fgBorderY = nullptr;
+    uint32_t* fgBorderPointsCount = nullptr;
 
-    //g.sync();
-    //int* borderY = &(borderPos[fgBorderCount]);
+    uint16_t* d_unknownX = nullptr;
+    uint16_t* d_unknownY = nullptr;
+    uint32_t* d_unknownCount = nullptr;
+    float* d_dists = nullptr;
+    cudaMalloc(reinterpret_cast<void**>(&fgBorderPointsCount), sizeof(uint32_t));
+    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderX), m_size * sizeof(uint16_t));
+    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderY), m_size * sizeof(uint16_t));
+    cudaMemset(reinterpret_cast<void*>(fgBorderPointsCount), 0, sizeof(uint16_t));
 
-    /*const int threadId = threadIdx.x * threadIdx.y;
-    for (int i = threadId; i < fgBorderCount; i += 256) {
-        borderPos[i] = fgBorderX[i];
-        borderY[i] = fgBorderY[i];
-    }*/
-
-    if (trimap[id] != 128)
-        return;
-
-    // Propagation
+    cudaMalloc(reinterpret_cast<void**>(&d_unknownCount), sizeof(uint32_t));
+    cudaMalloc(reinterpret_cast<void**>(&d_unknownX), m_size * sizeof(uint16_t));
+    cudaMalloc(reinterpret_cast<void**>(&d_unknownY), m_size * sizeof(uint16_t));
+    cudaMemset(reinterpret_cast<void*>(d_unknownCount), 0, sizeof(uint16_t));
 
 
-    // Random search
+    dim3 dimGrid{ 80, 45 };
+    dim3 dimBlock{ 16, 16 };
 
-    /*float minDist = FLT_MAX;
-    for (int i = 0; i < fgBorderCount; i++) {
-        float distance =
-            x - fgBorderX[i]+
-            y - fgBorderY[i]
-        ;
-        minDist = min(minDist, distance);
-    }
+    k_initializeSampleSet<<<dimGrid, dimBlock>>> (
+        d_trimap, d_output, 1280, 720, d_fgBorderX, d_fgBorderY, fgBorderPointsCount,
+        d_unknownX, d_unknownY, d_unknownCount
+    );
 
-    dists[id] = minDist;*/
+    //matting res trimap border fg = 7251 without rand
+    uint32_t count = 0, countBorder;
+    cudaMemcpy(&count, d_unknownCount, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&countBorder, fgBorderPointsCount, sizeof(uint32_t), cudaMemcpyDeviceToHost);
+
+    std::cout << "Unknown count " << countBorder << std::endl;
 }
