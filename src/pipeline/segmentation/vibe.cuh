@@ -9,8 +9,7 @@
 using Gpu::Utils::RandState;
 
 namespace Gpu {
-    class ViBe
-    {
+    class ViBe {
         private:
             static constexpr uint8_t SAMPLE_COUNT = 20;
 

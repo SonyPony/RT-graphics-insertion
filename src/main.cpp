@@ -24,13 +24,9 @@ int main(int argc, char *argv[])
     uint8_t* bgRaw = Utils::getImgRawData("C:\\_Shared\\matting\\bg.png", QImage::Format_RGBA8888);
     uint8_t* trimap = Utils::getImgRawData("C:\\_Shared\\matting\\trimap2.png", QImage::Format_Grayscale8);
 
-    //GPU::InsertionGraphicsPipeline pipeline{im.width(), im.height()};
     Gpu::InsertionGraphicsPipeline pipeline(im.width(), im.height());
     pipeline.initialize(bgRaw);
-    pipeline.process(rawData, nullptr, out);
-
-    /*pipeline.initialize(bgRaw);
-    pipeline.process(rawData, nullptr, out, trimap);*/
+    pipeline.process(rawData, nullptr, out, trimap);
 
     cudaDeviceSynchronize();
     QImage outIm{ out, im.width(), im.height(), QImage::Format_Grayscale8 };
