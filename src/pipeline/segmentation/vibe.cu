@@ -3,7 +3,6 @@
 #include <math.h>
 #include <cuda.h>
 #include <curand_kernel.h>
-#include <time.h>
 #include "../../common/config.h"
 
 
@@ -66,16 +65,7 @@ Gpu::ViBe::ViBe(int width, int height)
     const int modelSize = modelSampleSize * ViBe::SAMPLE_COUNT;
 
     // init rand states for vibe update
-    m_d_randState = nullptr;
-    auto randState = new RandState[m_size];
-
-    srand(time(nullptr));
-    for (int i = 0; i < m_size; i++)
-        randState[i] = static_cast<uint32_t>(rand());
-
-    // copy randoms to device
-    cudaMalloc(reinterpret_cast<void**>(&m_d_randState), m_size * sizeof(RandState));
-    cudaMemcpy(m_d_randState, randState, m_size * sizeof(RandState), cudaMemcpyHostToDevice);
+    Gpu::Utils::generateRandStates(&m_d_randState, m_size);
 
     // alloc background model on device
     cudaMalloc(reinterpret_cast<void**>(&m_d_bgModel), modelSize);

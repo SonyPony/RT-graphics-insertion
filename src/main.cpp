@@ -5,6 +5,7 @@
 #include <QLabel>
 #include <QDebug>
 #include "util/util.h"
+#include <time.h>
 
 using namespace std;
 
@@ -13,6 +14,7 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     //RTgraphicsinsertion w;
+    srand(time(nullptr));
 
     QImage im{ "C:\\_Shared\\matting\\frame2.png" };
     im = im.convertToFormat(QImage::Format_RGBA8888);
