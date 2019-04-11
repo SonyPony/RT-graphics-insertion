@@ -25,7 +25,7 @@ namespace Gpu {
             ~ViBe();
 
             void initialize(Byte* backgroundModel);
-            void segment(Byte* d_input, Byte* d_dest);
+            Byte* segment(Byte* d_input, Byte* d_dest);
     };
     
 }

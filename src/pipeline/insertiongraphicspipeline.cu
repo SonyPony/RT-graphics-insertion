@@ -32,12 +32,12 @@ void Gpu::InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte
 
     // segmentation
     cudaMemcpy(m_d_frame, input, m_size * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
-    m_segmenter->segment(m_d_frame, m_d_segmentation);
+    Byte* d_background = m_segmenter->segment(m_d_frame, m_d_segmentation);
     cudaMemcpy(output, m_d_segmentation, m_size, cudaMemcpyDeviceToHost);
 
     // matting
     cudaMemcpy(m_d_trimap, trimap, m_size, cudaMemcpyHostToDevice);
-    m_matting->matting(m_d_frame, m_d_trimap, m_d_segmentation);
+    m_matting->matting(m_d_frame, m_d_trimap, d_background, m_d_segmentation);
 
     // TEST output
     cudaMemcpy(output, m_d_segmentation, m_size, cudaMemcpyDeviceToHost);

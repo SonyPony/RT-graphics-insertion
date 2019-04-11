@@ -8,6 +8,28 @@
 
 using Gpu::Utils::RandState;
 
+/*struct __device_builtin__ __builtin_align__(16) float4
+{
+    float x, y, z, w;
+};
+*/
+
+struct __align__(32) UnknownPixel
+{
+    float bgR;
+    float bgG;
+    float bgB;
+
+    float frameR;
+    float frameG;
+    float frameB;
+
+    float bestCost;
+    float currentAlpha;
+};
+
+//typedef __device_builtin__ struct UnknownPixel UnknownPixel;
+
 namespace Gpu {
     class GlobalSampling {
         private:
@@ -22,7 +44,7 @@ namespace Gpu {
         public:
             GlobalSampling(int width, int height);
 
-            void matting(Byte* d_image, Byte* d_trimap, Byte* d_output);
+            void matting(Byte* d_image, Byte* d_trimap, Byte* d_background, Byte* d_output);
     };
 
 }

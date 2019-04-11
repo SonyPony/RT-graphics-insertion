@@ -87,9 +87,11 @@ void Gpu::ViBe::initialize(Byte* backgroundModel) {
     k_initBackgroundModelSamples<<<900, 1024 >>> (d_bgInit, m_d_bgModel, ViBe::SAMPLE_COUNT, m_width * m_height);
 }
 
-void Gpu::ViBe::segment(Byte* d_input, Byte* d_dest) {
+Byte* Gpu::ViBe::segment(Byte* d_input, Byte* d_dest) {
     k_segment<<<1800, 512>>> (d_input, m_d_bgModel, d_dest, m_size, 0, m_d_randState);
 
     auto err = cudaGetLastError();
     std::cout << cudaGetErrorName(err);
+
+    return m_d_bgModel;
 }
