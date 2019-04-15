@@ -41,10 +41,10 @@ struct __align__(16) MattingSample
     uint16_t x;
     uint16_t y;
 
-    uint32_t index;
+    /*uint32_t index;
 
     uint8_t _;
-    uint32_t _;
+    uint32_t __;*/
 };
 
 //typedef __device_builtin__ struct UnknownPixel UnknownPixel;

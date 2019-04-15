@@ -19,6 +19,25 @@ Gpu::GlobalSampling::GlobalSampling(int width, int height)
     Gpu::Utils::generateRandStates(&m_d_randStates, m_size);
 }
 
+__global__ void k_initBestSamples(MattingSample* samples, int samplesCount, uint8_t* trimap, MattingSample** bestSamples,
+    int* bestSamplesIndexes, RandState* d_randState, int width, int height) {
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = width * y + x;
+
+    if (x == 0 || x == width - 1 || y == 0 || y == height - 1 || trimap[x + y * width] != 128) {
+        bestSamples[id] = nullptr;
+        return;
+    }
+
+    RandState localRandState = d_randState[id];
+    int sampleIndex = Gpu::Utils::devRand(localRandState) * (samplesCount - 1);
+    bestSamplesIndexes[id] = sampleIndex;
+    bestSamples[id] = &samples[sampleIndex];
+
+    d_randState[id] = localRandState;
+}
+
 __global__ void k_initializeSampleSet(
     uint8_t* trimap,
     uint8_t* dest,
@@ -79,7 +98,7 @@ __global__ void k_initializeSampleSet(
         mattingSample.R = framePixel.x;
         mattingSample.G = framePixel.y;
         mattingSample.B = framePixel.z;
-        mattingSample.index = i;
+        //mattingSample.index = i;
         
 
         samples[i] = mattingSample;
@@ -356,6 +375,7 @@ __global__ void k_faster_sampleMatch(MattingSample* bestSamples, MattingSample* 
     pixelInfo.bestCost = s_bestCost[subId];
     unknownPixels[id] = pixelInfo;
     bestSamples[id] = currentBestSample;
+    d_randState[id] = localRandState;
 }
 
 void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_background, Byte * d_output)
@@ -373,7 +393,8 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     UnknownPixel* d_unknownPixels = nullptr;
     int* d_unknownPixelsCount = 0;
     MattingSample* d_mattingSamples = nullptr;
-    MattingSample* d_bestSamples = nullptr;
+    int* d_bestSamplesIndexes = nullptr;
+    MattingSample** d_bestSamples = nullptr;
 
     /*NEW---------*/
     ushort2* d_fgBoundaryPos = nullptr;
@@ -391,7 +412,8 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
 
     cudaMalloc(reinterpret_cast<void**>(&d_unknownPixels), m_size * sizeof(UnknownPixel));
     cudaMalloc(reinterpret_cast<void**>(&d_mattingSamples), m_size * sizeof(MattingSample));
-    cudaMalloc(reinterpret_cast<void**>(&d_bestSamples), m_size * sizeof(MattingSample));
+    cudaMalloc(reinterpret_cast<void**>(&d_bestSamples), m_size * sizeof(MattingSample*));
+    cudaMalloc(reinterpret_cast<void**>(&d_bestSamplesIndexes), m_size * sizeof(int));
     cudaMalloc(reinterpret_cast<void**>(&d_unknownPixelsCount), sizeof(int));
 
     /*NEW-----------*/
@@ -425,8 +447,9 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     k_initializeSampleSet<<<dimGrid, dimBlock>>> (
         d_trimap, d_output, 1280, 720, d_fgBorderX, d_fgBorderY, fgBorderPointsCount,
         d_unknownX, d_unknownY, d_unknownCount, d_fgBoundaryPos, 
-        d_unknownPixels, d_unknownPixelsCount, d_frame, d_background, d_bestSamples
+        d_unknownPixels, d_unknownPixelsCount, d_frame, d_background, d_mattingSamples
     );
+    cudaDeviceSynchronize();
 
     //matting res trimap border fg = 7251 without rand
     uint32_t count = 0, countBorder, unknownPixelsCount;
@@ -439,16 +462,23 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     cudaMemcpyToSymbol(c_frameSize, frameSize, sizeof(int) * 2);
 
     std::cout << "Uknown" << unknownPixelsCount << std::endl;
+
+    k_initBestSamples << <dimGrid, dimBlock >> > (d_mattingSamples, countBorder, d_trimap, d_bestSamples, 
+        d_bestSamplesIndexes, m_d_randStates, m_width, m_height);
+    cudaDeviceSynchronize();
     
     k_sampleMatch<<<dimGrid, dimBlock>>>(d_trimap, d_frame, d_background, d_output, m_d_randStates, 
         d_fgBoundaryPos, countBorder, m_width, m_height);
-    k_faster_sampleMatch << <dimGrid, dimBlock >> > (d_bestSamples, d_mattingSamples, d_trimap, d_frame, d_unknownPixels,
+    cudaDeviceSynchronize();
+    k_faster_sampleMatch << <dimGrid, dimBlock >> > (d_mattingSamples, d_mattingSamples, d_trimap, d_frame, d_unknownPixels,
         unknownPixelsCount, d_output, m_d_randStates,
         d_fgBoundaryPos, countBorder, m_width, m_height);
+    cudaDeviceSynchronize();
 
     k_fastest_sampleMatch << <dimGrid, dimBlock >> > (d_trimap, d_frame, d_unknownPixels,
          unknownPixelsCount, d_output, m_d_randStates,
         d_fgBoundaryPos, countBorder, m_width, m_height);
+    cudaDeviceSynchronize();
     auto err = cudaGetLastError();
     std::cout << cudaGetErrorName(err);
 }
