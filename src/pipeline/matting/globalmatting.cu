@@ -96,7 +96,7 @@ __global__ void k_initializeSampleSet(
 
     if (x == 0 || x == width - 1 || y == 0 || y == height - 1 || trimap[x + y * width] != 255)
         return;
-    uchar4 framePixel = frame[yOffset + x];
+    uchar4 framePixel = frame[FRAME_WIDTH * y + x];
     /*i = atomicAdd(unknownPixelsCount, 1);
     UnknownPixel up;
     up.bgR = background[(yOffset + x)];
@@ -144,21 +144,21 @@ __global__ void k_initializeSampleSet(
 
 }
 
-inline __device__ float calculateAlpha(float3 pixelColor,
-    float3 sampleColor, float3 backgroundColor) {
+inline __device__ float calculateAlpha(float3 I,
+    float3 F, float3 B) {
 
-    float3 numerator = (pixelColor - backgroundColor) * (sampleColor - backgroundColor);
-    float3 denominator = (sampleColor - backgroundColor) * (sampleColor - backgroundColor);
+    float3 numerator = (I - B) * (F - B);
+    float3 denominator = (F - B) * (F - B);
     //denominator *= denominator;
 
     return clamp(Gpu::Utils::sum(numerator) / (1e-6f + Gpu::Utils::sum(denominator)), 0.f, 1.f);
 }
 
-inline __device__ float faster_colorCost(float3 pixelColor,
-    float3 sampleColor, float3 backgroundColor, float alpha) {
+inline __device__ float faster_colorCost(float3 I,
+    float3 F, float3 B, float alpha) {
 
-    sampleColor = pixelColor - (sampleColor * alpha + backgroundColor * (1.f - alpha));
-    return norm3df(sampleColor.x, sampleColor.y, sampleColor.z);
+    F = I - (F * alpha + B * (1.f - alpha));
+    return norm3df(F.x, F.y, F.z);
 }
 
 inline __device__ float distanceColor(uint2 pixelPos, uint2 samplePos) {
@@ -168,7 +168,12 @@ inline __device__ float distanceColor(uint2 pixelPos, uint2 samplePos) {
     return length(fsamplePos - fPixelPos);
 }
 
-__global__ void k_faster_sampleMatch(int* bestSamplesIndexes , MattingSample* mattingSamples, Byte* d_trimap, uchar4* d_frame, UnknownPixel* unknownPixels, int unknownPixelsCount, Byte* d_dest,
+// TODO del frame
+__global__ void k_faster_sampleMatch(
+    int* bestSamplesIndexes , 
+    MattingSample* mattingSamples, 
+    Byte* d_trimap, uchar4* d_frame, 
+    UnknownPixel* unknownPixels, int unknownPixelsCount, Byte* d_dest,
     RandState* d_randState, uint16_t fgBorderCount) {
     const int id = (blockDim.x * blockIdx.x + threadIdx.x) + (blockDim.y * blockIdx.y + threadIdx.y) * FRAME_WIDTH;
     const int subId = threadIdx.x * threadIdx.y;
@@ -182,43 +187,39 @@ __global__ void k_faster_sampleMatch(int* bestSamplesIndexes , MattingSample* ma
 
     int bestSampleIndex = bestSamplesIndexes[pixelId];
     MattingSample sample = mattingSamples[bestSampleIndex];
-    //MattingSample* currentBestSample = nullptr;
 
     __shared__ int s_cost[256];
 
     // load pixels colors
-    const float3 reducedPixelColor = make_float3(pixelInfo.frameR, pixelInfo.frameG, pixelInfo.frameB);
-    const float3 bgColor = make_float3(pixelInfo.bgR, pixelInfo.bgG, pixelInfo.bgB);
+    const float3 I = make_float3(pixelInfo.frameR, pixelInfo.frameG, pixelInfo.frameB);
+    const float3 B = make_float3(pixelInfo.bgR, pixelInfo.bgG, pixelInfo.bgB);
 
     // init with random sample
     int sampleIndex;
-    float3 reducedSampleColor;// = make_float3(sample.R, sample.G, sample.B);
+    float3 F;
     float alpha;
 
     // propagation
-    for (int dx = pixelInfo.x - 1; dx <= pixelInfo.x + 1; dx++) {
-        for (int dy = pixelInfo.y -1; dy <= pixelInfo.y + 1; dy++) {
-            int n_id = dx + dy * FRAME_WIDTH;
+    for (int dx = (int)pixelInfo.x - 1; dx <= (int)pixelInfo.x + 1; dx++) {
+        for (int dy = (int)pixelInfo.y -1; dy <= (int)pixelInfo.y + 1; dy++) {
+            //break;
+            int n_id = dx + dy * 1280;
 
             if (d_trimap[n_id] != GRAY)
                 continue;
 
             sampleIndex = bestSamplesIndexes[n_id];
             sample = mattingSamples[sampleIndex];
+            F = make_float3(sample.R, sample.G, sample.B);
 
-            alpha = calculateAlpha(
-                reducedPixelColor,
-                make_float3(sample.R, sample.G, sample.B),
-                bgColor
-            );
+            alpha = calculateAlpha(I, F, B);
 
-            s_cost[subId] =10* faster_colorCost(reducedPixelColor, reducedSampleColor, bgColor, alpha)
-                + sqrtf((sample.x - pixelInfo.x) * (sample.x - pixelInfo.x)
-                    + (sample.y - pixelInfo.y) * (sample.y - pixelInfo.y));
+            s_cost[subId] = 10 * faster_colorCost(I, F, B, alpha)
+                + norm3df((float)sample.x - (float)pixelInfo.x, (float)sample.y - (float)pixelInfo.y, 0.f);
+
             if (s_cost[subId] < pixelInfo.bestCost) {
                 pixelInfo.bestCost = s_cost[subId];
                 pixelInfo.currentAlpha = alpha * 255;
-                //currentBestSample = &mattingSamples[sampleIndex];
                 bestSampleIndex = sampleIndex;
             }
             
@@ -227,40 +228,40 @@ __global__ void k_faster_sampleMatch(int* bestSamplesIndexes , MattingSample* ma
 
 
     // random walk
-    for (float B = 1.f; B * fgBorderCount > 1; B *= 0.5f) {
-        sampleIndex = bestSampleIndex + B * (Gpu::Utils::devRand(localRandState) * 2.f - 1.f) * (fgBorderCount - 1);
+    for (float BK = 1.f; BK * fgBorderCount > 1.f; BK *= 0.5f) {
+        sampleIndex = bestSampleIndex + BK * (Gpu::Utils::devRand(localRandState) * 2.f - 1.f) * (fgBorderCount - 1);
         if (sampleIndex < 0 || sampleIndex >= fgBorderCount)
             continue;
-
+        //break;
         sample = mattingSamples[sampleIndex];
 
-        reducedSampleColor = make_float3(sample.R, sample.G, sample.B);
+        F = make_float3(sample.R, sample.G, sample.B);
 
-        alpha = calculateAlpha(reducedPixelColor, reducedSampleColor, bgColor);
-        s_cost[subId] = 10*faster_colorCost(reducedPixelColor, reducedSampleColor, bgColor, alpha)
-            + sqrtf((sample.x - pixelInfo.x) * (sample.x - pixelInfo.x)
-                + (sample.y - pixelInfo.y) * (sample.y - pixelInfo.y));
+        alpha = calculateAlpha(I, F, B);
+        s_cost[subId] = 10*faster_colorCost(I, F, B, alpha)
+            + norm3df((float)sample.x - (float)pixelInfo.x, (float)sample.y - (float)pixelInfo.y, 0.f);
 
         // save best sample
         if (s_cost[subId] < pixelInfo.bestCost) {
             pixelInfo.bestCost = s_cost[subId];
             pixelInfo.currentAlpha = alpha * 255;
-            //currentBestSample = &mattingSamples[sampleIndex];
             bestSampleIndex = sampleIndex;
         }
     }
 
     //pixelInfo.currentAlpha = 255;
     unknownPixels[id] = pixelInfo;
-    //bestSamples[id] = currentBestSample;
     d_randState[id] = localRandState;
-    bestSamplesIndexes[pixelId] = bestSampleIndex;
+    bestSamplesIndexes[pixelInfo.x + pixelInfo.y * 1280] = bestSampleIndex;
 }
 
-__global__ void k_renderMatting(uint8_t* alphaMask, UnknownPixel* unknownPixels, int unknownPixelsCount) {
+__global__ void k_renderMatting(uint8_t* alphaMask, UnknownPixel* unknownPixels, int unknownPixelsCount, uint8_t* trimap) {
     const int x = blockDim.x * blockIdx.x + threadIdx.x;
     const int y = blockDim.y * blockIdx.y + threadIdx.y;
     const int id = y * FRAME_WIDTH + x;
+
+    /*if (trimap[id] == 255)
+        alphaMask[id] = 255;*/
 
     if (id >= unknownPixelsCount)
         return;
@@ -368,7 +369,7 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     }
 
     cudaMemset(d_output, 0, m_size);
-    k_renderMatting << <dimGrid, dimBlock >> > (d_output, d_unknownPixels, unknownPixelsCount);
+    k_renderMatting << <dimGrid, dimBlock >> > (d_output, d_unknownPixels, unknownPixelsCount, d_trimap);
 
     cudaDeviceSynchronize();
     
