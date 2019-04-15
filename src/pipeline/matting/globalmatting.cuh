@@ -14,18 +14,37 @@ using Gpu::Utils::RandState;
 };
 */
 
-struct __align__(32) UnknownPixel
+struct __align__(16) UnknownPixel
 {
-    float bgR;
-    float bgG;
-    float bgB;
+    uint8_t bgR;
+    uint8_t bgG;
+    uint8_t bgB;
 
-    float frameR;
-    float frameG;
-    float frameB;
+    uint8_t frameR;
+    uint8_t frameG;
+    uint8_t frameB;
 
     float bestCost;
-    float currentAlpha;
+    uint8_t currentAlpha;
+    
+    uint16_t x;
+    uint16_t y;
+    uint8_t _;
+};
+
+struct __align__(16) MattingSample
+{
+    uint8_t R;
+    uint8_t G;
+    uint8_t B;
+
+    uint16_t x;
+    uint16_t y;
+
+    uint32_t index;
+
+    uint8_t _;
+    uint32_t _;
 };
 
 //typedef __device_builtin__ struct UnknownPixel UnknownPixel;

@@ -36,7 +36,8 @@ __global__ void k_initializeSampleSet(
     UnknownPixel* unknownPixels,
     int* unknownPixelsCount,
     uchar4* frame,
-    uint8_t* background
+    uint8_t* background,
+    MattingSample* samples
 ) {
     const int x = blockDim.x * blockIdx.x + threadIdx.x;
     const int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -56,6 +57,12 @@ __global__ void k_initializeSampleSet(
     up.frameR = framePixel.x;
     up.frameG = framePixel.y;
     up.frameB = framePixel.z;
+    up.bestCost = FLT_MAX;
+
+    up.x = x;
+    up.y = y;
+
+    unknownPixels[i] = up;
 
     // creating border between unknown area and the foreground
     if (trimap[x + yOffset + 1] == GRAY || trimap[x + yOffset - 1] == GRAY
@@ -65,6 +72,17 @@ __global__ void k_initializeSampleSet(
         fgBorderY[i] = y;
         fgBoundaryPos[i] = make_ushort2(x, y);
         dest[x + y * width] = 180;
+
+        MattingSample mattingSample;
+        mattingSample.x = x;
+        mattingSample.y = y;
+        mattingSample.R = framePixel.x;
+        mattingSample.G = framePixel.y;
+        mattingSample.B = framePixel.z;
+        mattingSample.index = i;
+        
+
+        samples[i] = mattingSample;
 
     } // TODO rand vzorky?
 
@@ -175,18 +193,20 @@ __global__ void k_sampleMatch(Byte* d_trimap, uchar4* d_frame, Byte* d_backgroun
 }
 
 
-__global__ void k_fastest_sampleMatch(UnknownPixel* unknownPixels, int unknownPixelsCount, Byte* d_dest,
+__global__ void k_fastest_sampleMatch(Byte* d_trimap, uchar4* d_frame, UnknownPixel* unknownPixels, int unknownPixelsCount, Byte* d_dest,
     RandState* d_randState, ushort2* fgBoundaryPos, uint16_t fgBorderCount,
     int width, int height) {
-    const int x = blockDim.x * blockIdx.x + threadIdx.x;
-    const int y = blockDim.y * blockIdx.y + threadIdx.y;
-    const int id = x + y * width;
+    const int bx = blockDim.x * blockIdx.x + threadIdx.x;
+    const int by = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = bx + by * width;
     const int subId = threadIdx.x * threadIdx.y;
 
     if (id < unknownPixelsCount)
         return;
     RandState localRandState = d_randState[id];
     UnknownPixel pixelInfo = unknownPixels[id];
+    const int x = pixelInfo.x;
+    const int y = pixelInfo.y;
 
 
     __shared__ uchar4 s_sampleColors[256];
@@ -238,72 +258,104 @@ __global__ void k_fastest_sampleMatch(UnknownPixel* unknownPixels, int unknownPi
     // random walk
 
 }
-__global__ void k_faster_sampleMatch(Byte* d_trimap, uchar4* d_frame, Byte* d_background, Byte* d_dest,
-    RandState* d_randState, uint16_t* fgBorderX, uint16_t* fgBorderY, uint16_t fgBorderCount,
+
+__global__ void k_faster_sampleMatch(MattingSample* bestSamples, MattingSample* mattingSamples, Byte* d_trimap, uchar4* d_frame, UnknownPixel* unknownPixels, int unknownPixelsCount, Byte* d_dest,
+    RandState* d_randState, ushort2* fgBoundaryPos, uint16_t fgBorderCount,
     int width, int height) {
-    const int x = blockDim.x * blockIdx.x + threadIdx.x;
-    const int y = blockDim.y * blockIdx.y + threadIdx.y;
-    const int id = x + y * width;
+    const int id = (blockDim.x * blockIdx.x + threadIdx.x) + (blockDim.y * blockIdx.y + threadIdx.y) * width;
     const int subId = threadIdx.x * threadIdx.y;
 
-    RandState localRandState = d_randState[id];
-
-    if (x == 0 || x == width - 1 || y == 0 || y == height - 1 || d_trimap[id] != GRAY)
+    if (id < unknownPixelsCount)
         return;
+    RandState localRandState = d_randState[id];
+    UnknownPixel pixelInfo = unknownPixels[id];
+    /*const int x = pixelInfo.x;
+    const int y = pixelInfo.y;*/
+    MattingSample sample, currentBestSample;
+
 
     __shared__ uchar4 s_sampleColors[256];
     __shared__ int s_cost[256];
     __shared__ int s_bestCost[256];
+    __shared__ ushort2 s_fgBoundaryPos[256];
+    __shared__ uint8_t s_bestAlpha[256];
 
     // load pixels colors
-    uchar4 pixelColor = d_frame[id];
-    float3 reducedPixelColor = make_float3(pixelColor.x, pixelColor.y, pixelColor.z);
-    float rawBgColor[3];
-
-    for (int channel = 0; channel < 3; channel++)
-        rawBgColor[channel] = d_background[id + channel * (width * height)];
-    float3 bgColor = make_float3(rawBgColor[0], rawBgColor[1], rawBgColor[2]);
+    float3 reducedPixelColor = make_float3(pixelInfo.frameR, pixelInfo.frameG, pixelInfo.frameB);
+    float3 bgColor = make_float3(pixelInfo.bgR, pixelInfo.bgG, pixelInfo.bgB);
 
     // init with random sample
     int sampleIndex = Gpu::Utils::devRand(localRandState) * (fgBorderCount - 1);
-    int sampleX = fgBorderX[sampleIndex];
-    int sampleY = fgBorderY[sampleIndex];
-    s_sampleColors[subId] = d_frame[sampleY * width + sampleX];
+    s_fgBoundaryPos[subId] = fgBoundaryPos[sampleIndex];
+
+    s_sampleColors[subId] = d_frame[s_fgBoundaryPos[subId].y * width + s_fgBoundaryPos[subId].x];
     float3 reducedSampleColor = make_float3(UNPACK_V3(s_sampleColors[subId]));
 
     float alpha = calculateAlpha(reducedPixelColor, reducedSampleColor, bgColor);
+    s_bestAlpha[subId] = alpha * 255;
     s_cost[subId] = faster_colorCost(reducedPixelColor, reducedSampleColor, bgColor, alpha)
-        + sqrtf((sampleX - x) * (sampleX - x) + (sampleY - y) * (sampleY - y));
+        + sqrtf((s_fgBoundaryPos[subId].x - pixelInfo.x) * (s_fgBoundaryPos[subId].x - pixelInfo.x)
+            + (s_fgBoundaryPos[subId].y - pixelInfo.y) * (s_fgBoundaryPos[subId].y - pixelInfo.y));
     s_bestCost[subId] = s_cost[subId];
-    uint2 bestPos = make_uint2(sampleX, sampleY);
-    //for (int i = 0; i < 10; i++) {  // 10 iterations
-    // propagation
 
+    // TODO init best samples
+    // propagation
+#pragma unroll
     for (int dx = -1; dx < 2; dx++) {
+#pragma unroll
         for (int dy = -1; dy < 2; dy++) {
-            int sampleIndex = x + dx + (y + dy) * width;
+            // really means id
+            sampleIndex = pixelInfo.x + dx + (pixelInfo.y + dy) * width;
 
             if (d_trimap[sampleIndex] == GRAY) {
-                sampleX = fgBorderX[sampleIndex];
-                sampleY = fgBorderY[sampleIndex];
-                s_sampleColors[subId] = d_frame[sampleY * width + sampleX];
-                reducedSampleColor = make_float3(UNPACK_V3(s_sampleColors[subId]));
+                sample = bestSamples[sampleIndex];
 
-                alpha = calculateAlpha(reducedPixelColor, reducedSampleColor, bgColor);
+                alpha = calculateAlpha(
+                    reducedPixelColor,
+                    make_float3(sample.R, sample.G, sample.B),
+                    bgColor
+                );
+
                 s_cost[subId] = faster_colorCost(reducedPixelColor, reducedSampleColor, bgColor, alpha)
-                    + sqrtf((sampleX - x) * (sampleX - x) + (sampleY - y) * (sampleY - y));
+                    + sqrtf((sample.x - pixelInfo.x) * (sample.x - pixelInfo.x) 
+                        + (sample.y - pixelInfo.y) * (sample.y - pixelInfo.y));
                 if (s_cost[subId] < s_bestCost[subId]) {
                     s_bestCost[subId] = s_cost[subId];
-                    bestPos = make_uint2(sampleX, sampleY);
+                    s_bestAlpha[subId] = alpha * 255;
+                    currentBestSample = sample;
                 }
             }
         }
     }
 
 
-
     // random walk
+    for (float B = 1.f; B * fgBorderCount > 1; B *= 0.5f) {
+        sampleIndex = B * (Gpu::Utils::devRand(localRandState) * 2.f - 1.f) * (fgBorderCount - 1);
+        if (sampleIndex < 0 || sampleIndex >= fgBorderCount)
+            continue;
 
+        sample = mattingSamples[sampleIndex];
+
+        reducedSampleColor = make_float3(sample.R, sample.G, sample.B);
+        
+        alpha = calculateAlpha(reducedPixelColor, reducedSampleColor, bgColor);
+        s_cost[subId] = faster_colorCost(reducedPixelColor, reducedSampleColor, bgColor, alpha)
+            + sqrtf((sample.x - pixelInfo.x) * (sample.x - pixelInfo.x)
+                + (sample.y - pixelInfo.y) * (sample.y - pixelInfo.y));
+
+        // save best sample
+        if (s_cost[subId] < s_bestCost[subId]) {
+            s_bestCost[subId] = s_cost[subId];
+            s_bestAlpha[subId] = alpha * 255;
+            currentBestSample = sample;
+        }
+    }
+
+    pixelInfo.currentAlpha = s_bestAlpha[subId];
+    pixelInfo.bestCost = s_bestCost[subId];
+    unknownPixels[id] = pixelInfo;
+    bestSamples[id] = currentBestSample;
 }
 
 void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_background, Byte * d_output)
@@ -320,6 +372,8 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     uint32_t* fgBorderPointsCount = nullptr;
     UnknownPixel* d_unknownPixels = nullptr;
     int* d_unknownPixelsCount = 0;
+    MattingSample* d_mattingSamples = nullptr;
+    MattingSample* d_bestSamples = nullptr;
 
     /*NEW---------*/
     ushort2* d_fgBoundaryPos = nullptr;
@@ -328,12 +382,16 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     uint16_t* d_unknownX = nullptr;
     uint16_t* d_unknownY = nullptr;
     uint32_t* d_unknownCount = nullptr;
+
+
     float* d_dists = nullptr;
     cudaMalloc(reinterpret_cast<void**>(&fgBorderPointsCount), sizeof(uint32_t));
     cudaMalloc(reinterpret_cast<void**>(&d_fgBorderX), m_size * sizeof(uint16_t));
     cudaMalloc(reinterpret_cast<void**>(&d_fgBorderY), m_size * sizeof(uint16_t));
 
     cudaMalloc(reinterpret_cast<void**>(&d_unknownPixels), m_size * sizeof(UnknownPixel));
+    cudaMalloc(reinterpret_cast<void**>(&d_mattingSamples), m_size * sizeof(MattingSample));
+    cudaMalloc(reinterpret_cast<void**>(&d_bestSamples), m_size * sizeof(MattingSample));
     cudaMalloc(reinterpret_cast<void**>(&d_unknownPixelsCount), sizeof(int));
 
     /*NEW-----------*/
@@ -367,7 +425,7 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     k_initializeSampleSet<<<dimGrid, dimBlock>>> (
         d_trimap, d_output, 1280, 720, d_fgBorderX, d_fgBorderY, fgBorderPointsCount,
         d_unknownX, d_unknownY, d_unknownCount, d_fgBoundaryPos, 
-        d_unknownPixels, d_unknownPixelsCount, d_frame, d_background
+        d_unknownPixels, d_unknownPixelsCount, d_frame, d_background, d_bestSamples
     );
 
     //matting res trimap border fg = 7251 without rand
@@ -380,13 +438,16 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     int frameSize[] = { m_width, m_height };
     cudaMemcpyToSymbol(c_frameSize, frameSize, sizeof(int) * 2);
 
-
+    std::cout << "Uknown" << unknownPixelsCount << std::endl;
     
     k_sampleMatch<<<dimGrid, dimBlock>>>(d_trimap, d_frame, d_background, d_output, m_d_randStates, 
         d_fgBoundaryPos, countBorder, m_width, m_height);
-    k_faster_sampleMatch << <dimGrid, dimBlock >> > (d_trimap, d_frame, d_background, d_output, m_d_randStates, d_fgBorderX,
-        d_fgBorderY, countBorder, m_width, m_height);
-    k_fastest_sampleMatch << <dimGrid, dimBlock >> > (d_trimap, d_frame, d_background, d_output, m_d_randStates,
+    k_faster_sampleMatch << <dimGrid, dimBlock >> > (d_bestSamples, d_mattingSamples, d_trimap, d_frame, d_unknownPixels,
+        unknownPixelsCount, d_output, m_d_randStates,
+        d_fgBoundaryPos, countBorder, m_width, m_height);
+
+    k_fastest_sampleMatch << <dimGrid, dimBlock >> > (d_trimap, d_frame, d_unknownPixels,
+         unknownPixelsCount, d_output, m_d_randStates,
         d_fgBoundaryPos, countBorder, m_width, m_height);
     auto err = cudaGetLastError();
     std::cout << cudaGetErrorName(err);
