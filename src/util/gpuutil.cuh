@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "helper_math.h"
 
 #define UNPACK_V2(v) v.x, v.y
 #define UNPACK_V3(v) v.x, v.y, v.z
@@ -16,7 +17,7 @@ namespace Gpu {
         __device__ __forceinline__ float devRand(RandState & state) {
             constexpr RandState RNG_COEFF = 4164903690U;
             state = state * RNG_COEFF + (state >> 16);
-            return static_cast<float>(state) / UINT32_MAX;
+            return clamp(static_cast<float>(state) / static_cast<float>(UINT32_MAX), 0.f, 1.f);
         }
 
         inline __host__ __device__ float sum(float2 a) {
