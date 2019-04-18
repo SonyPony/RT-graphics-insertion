@@ -5,6 +5,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "helper_math.h"
+#include "../common/config.h"
 
 #define UNPACK_V2(v) v.x, v.y
 #define UNPACK_V3(v) v.x, v.y, v.z
@@ -29,6 +30,56 @@ namespace Gpu {
         }
 
         void generateRandStates(RandState** d_rs, size_t count);
+
+        /**
+    r means radius (kernel size = 5 means r = 2)
+*/
+        template<typename T, typename U>
+        __global__ void k_boxFilter_sep_x(T* input, U* output, int r) {
+            const int x = blockDim.x * blockIdx.x + threadIdx.x;
+            const int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+            if (x <= r - 1 || x >= FRAME_WIDTH - r || y <= r - 1 || y >= FRAME_HEIGHT - r) {
+                output[x + y * FRAME_WIDTH] = 0;
+                return;
+            }
+
+            float outputValue = 0.f;
+            for (int i = -r; i <= r; i++) //x
+                outputValue += input[x + i + y * FRAME_WIDTH];
+
+            output[x + y * FRAME_WIDTH] = outputValue / (2 * r + 1);
+        }
+
+        template<typename T, typename U>
+        __global__ void k_boxFilter_sep_y(T* input, U* output, int r) {
+            const int x = blockDim.x * blockIdx.x + threadIdx.x;
+            const int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+            if (x <= r - 1 || x >= FRAME_WIDTH - r || y <= r - 1 || y >= FRAME_HEIGHT - r) {
+                output[x + y * FRAME_WIDTH] = 0;
+                return;
+            }
+
+            float outputValue = 0.f;
+            for (int j = -r; j <= r; j++) //y
+                outputValue += input[x + (y + j) * FRAME_WIDTH];
+
+            output[x + y * FRAME_WIDTH] = outputValue / (2 * r + 1);
+        }
+
+        template<typename T>
+        void boxFilter(dim3 dimGrid, dim3 dimBlock, T* input, T* output, T* temp, int r) {
+            k_boxFilter_sep_x<T, T> << <dimGrid, dimBlock >> > (input, temp, r);
+            cudaDeviceSynchronize();
+            k_boxFilter_sep_y<T, T> << <dimGrid, dimBlock >> > (temp, output, r);
+            cudaDeviceSynchronize();
+        }
+
+        template<typename T>
+        void boxFilter(dim3 dimGrid, dim3 dimBlock, T* arr, T* temp, int r) {
+            boxFilter<T>(dimGrid, dimBlock, arr, arr, temp, r);
+        }
     }
 }
 

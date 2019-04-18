@@ -5,6 +5,7 @@
 #include "device_launch_parameters.h"
 #include "../../common/common.h"
 #include "../../util/gpuutil.cuh"
+#include "guidedfilter.cuh"
 
 using Gpu::Utils::RandState;
 
@@ -59,6 +60,7 @@ namespace Gpu {
             const int m_size;
 
             RandState* m_d_randStates;
+            GuidedFilter m_guidedFilter;
 
         public:
             GlobalSampling(int width, int height);

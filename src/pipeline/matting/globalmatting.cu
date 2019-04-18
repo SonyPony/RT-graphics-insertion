@@ -5,12 +5,12 @@
 #include <limits>
 #include "helper_math.h"
 
+#include "../../common/config.h"
+
 #define GRAY 128
 using namespace std;
 
 __constant__ int c_frameSize[2];
-#define FRAME_WIDTH  1280
-#define FRAME_HEIGHT 720
 
 Gpu::GlobalSampling::GlobalSampling(int width, int height)
     : m_width{ width }, m_height{ height }, m_size{ width * height } {
@@ -97,22 +97,6 @@ __global__ void k_initializeSampleSet(
     if (x == 0 || x == width - 1 || y == 0 || y == height - 1 || trimap[x + y * width] != 255)
         return;
     uchar4 framePixel = frame[FRAME_WIDTH * y + x];
-    /*i = atomicAdd(unknownPixelsCount, 1);
-    UnknownPixel up;
-    up.bgR = background[(yOffset + x)];
-    up.bgG = background[(yOffset + x)  + (width * height)];
-    up.bgB = background[(yOffset + x) + 2 * (width * height)];
-
-    uchar4 framePixel = frame[yOffset + x];
-    up.frameR = framePixel.x;
-    up.frameG = framePixel.y;
-    up.frameB = framePixel.z;
-    up.bestCost = FLT_MAX;
-
-    up.x = x;
-    up.y = y;
-
-    unknownPixels[i] = up;*/
 
     // creating border between unknown area and the foreground
     if (trimap[x + yOffset + 1] == GRAY || trimap[x + yOffset - 1] == GRAY
@@ -149,7 +133,6 @@ inline __device__ float calculateAlpha(float3 I,
 
     float3 numerator = (I - B) * (F - B);
     float3 denominator = (F - B) * (F - B);
-    //denominator *= denominator;
 
     return clamp(Gpu::Utils::sum(numerator) / (1e-6f + Gpu::Utils::sum(denominator)), 0.f, 1.f);
 }
@@ -167,6 +150,29 @@ inline __device__ float distanceColor(uint2 pixelPos, uint2 samplePos) {
 
     return length(fsamplePos - fPixelPos);
 }
+
+/*__global__ void k_convolve_x(uint8_t* input, uint8_t* output) {
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x == 0 || x == FRAME_WIDTH - 1 || y == 0 || y == FRAME_HEIGHT - 1)
+        return;
+
+    int kernel[3][3] = {
+        {-1, 0, 1},
+        {-2, 0, 2},
+        {-1, 0, 1}
+    };
+    float outputValue = 0.f;
+
+    for (int i = -1; i <= 1; i++) { //x
+        for (int j = -1; j <= 1; j++) { //y
+            outputValue += kernel[j][i] * input[x + i + (y + j) * FRAME_WIDTH];
+        }
+    }
+
+    output[x + y * FRAME_WIDTH] = (int)outputValue;
+}*/
 
 // TODO del frame
 __global__ void k_faster_sampleMatch(
@@ -255,13 +261,15 @@ __global__ void k_faster_sampleMatch(
     bestSamplesIndexes[pixelInfo.x + pixelInfo.y * 1280] = bestSampleIndex;
 }
 
+#include<chrono>
+
 __global__ void k_renderMatting(uint8_t* alphaMask, UnknownPixel* unknownPixels, int unknownPixelsCount, uint8_t* trimap) {
     const int x = blockDim.x * blockIdx.x + threadIdx.x;
     const int y = blockDim.y * blockIdx.y + threadIdx.y;
     const int id = y * FRAME_WIDTH + x;
 
-    /*if (trimap[id] == 255)
-        alphaMask[id] = 255;*/
+    if (trimap[id] == 255)
+        alphaMask[id] = 255;
 
     if (id >= unknownPixelsCount)
         return;
@@ -370,6 +378,25 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
 
     cudaMemset(d_output, 0, m_size);
     k_renderMatting << <dimGrid, dimBlock >> > (d_output, d_unknownPixels, unknownPixelsCount, d_trimap);
+
+    // test convolve
+    uint8_t* temp = nullptr;
+    cudaMalloc(reinterpret_cast<void**>(&temp), m_size);
+    cudaMemcpy(temp, d_output, m_size, cudaMemcpyDeviceToDevice);
+    //k_convolve_x << <dimGrid, dimBlock >> > (temp, d_output);*/
+
+    /*k_convolve_sep_y << <dimGrid, dimBlock >> > (temp, temp_x);
+    k_convolve_sep_x << <dimGrid, dimBlock >> > (temp_x, d_output);*/
+
+    using namespace std::chrono;
+    high_resolution_clock::time_point t1 = high_resolution_clock::now();
+    m_guidedFilter.filter(d_frame, temp, d_output);
+    high_resolution_clock::time_point t2 = high_resolution_clock::now();
+
+    auto duration = duration_cast<microseconds>(t2 - t1).count();
+
+    cout << duration << std::endl;;
+    //-----------
 
     cudaDeviceSynchronize();
     
