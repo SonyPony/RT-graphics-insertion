@@ -35,8 +35,8 @@ GuidedFilter::GuidedFilter() {
 
 GuidedFilter::~GuidedFilter() {
     cudaFree(m_d_meanR);
-    cudaFree(m_d_meanR);
-    cudaFree(m_d_meanR);
+    cudaFree(m_d_meanG);
+    cudaFree(m_d_meanB);
 
     cudaFree(m_d_varRR);
     cudaFree(m_d_varRG);
