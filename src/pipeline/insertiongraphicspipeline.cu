@@ -1,5 +1,7 @@
 #include "insertiongraphicspipeline.cuh"
 #include "../common/config.h"
+#include "../pipeline/morphology/erosion.h"
+#include "../pipeline/morphology/erosionFuncTemplate.h"
 
 
 Gpu::InsertionGraphicsPipeline::InsertionGraphicsPipeline(int width, int height) 
@@ -34,6 +36,23 @@ void Gpu::InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte
     cudaMemcpy(m_d_frame, input, m_size * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
     Byte* d_background = m_segmenter->segment(m_d_frame, m_d_segmentation);
     cudaMemcpy(output, m_d_segmentation, m_size, cudaMemcpyDeviceToHost);
+
+
+    uint8_t* d_temp;
+    uint8_t* d_temp2;
+    cudaMalloc(reinterpret_cast<void**>(&d_temp), m_size);
+    cudaMalloc(reinterpret_cast<void**>(&d_temp2), m_size);
+    cudaMemcpy(d_temp2, m_d_segmentation, m_size, cudaMemcpyDeviceToDevice);
+
+    
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 2);
+    FilterDilation(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 2);
+
+    
+    FilterDilation(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 1);
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 1);
+    
+    // trimap
 
     // matting
     cudaMemcpy(m_d_trimap, trimap, m_size, cudaMemcpyHostToDevice);
