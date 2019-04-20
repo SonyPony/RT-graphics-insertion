@@ -200,7 +200,7 @@ template<const int radio> __global__ void ErosionTemplateSharedStep1(
     dst[y * width + x] = val;
 }
 
-void ErosionTemplateSharedTwoSteps(uint8_t * src, uint8_t * dst, uint8_t * temp, int width, int height, int radio) {
+void ErosionTemplateSharedTwoSteps(uint8_t * src, uint8_t * temp, int width, int height, int radio) {
     int tile_w1 = 256, tile_h1 = 1;
     dim3 block2(tile_w1 + (2 * radio), tile_h1);
     dim3 grid2(ceil((float)width / tile_w1), ceil((float)height / tile_h1));
@@ -211,77 +211,77 @@ void ErosionTemplateSharedTwoSteps(uint8_t * src, uint8_t * dst, uint8_t * temp,
         case 1:
             ErosionTemplateSharedStep1<1><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<1><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<1><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 2:
             ErosionTemplateSharedStep1<2><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<2><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<2><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 3:
             ErosionTemplateSharedStep1<3><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<3><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<3><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 4:
             ErosionTemplateSharedStep1<4><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<4><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<4><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 5:
             ErosionTemplateSharedStep1<5><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<5><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<5><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 6:
             ErosionTemplateSharedStep1<6><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<6><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<6><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 7:
             ErosionTemplateSharedStep1<7><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<7><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<7><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 8:
             ErosionTemplateSharedStep1<8><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<8><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<8><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 9:
             ErosionTemplateSharedStep1<9><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<9><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<9><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 10:
             ErosionTemplateSharedStep1<10><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<10><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<10><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 11:
             ErosionTemplateSharedStep1<11><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<11><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<11><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 12:
             ErosionTemplateSharedStep1<12><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<12><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<12><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 13:
             ErosionTemplateSharedStep1<13><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<13><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<13><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 14:
             ErosionTemplateSharedStep1<14><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<14><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<14><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 15:
             ErosionTemplateSharedStep1<15><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             checkCudaErrors(cudaDeviceSynchronize());
-            ErosionTemplateSharedStep2<15><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            ErosionTemplateSharedStep2<15><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
     }
     cudaError_t cudaerr = cudaDeviceSynchronize();

@@ -76,7 +76,7 @@ template<const int radio> __global__ void FilterDStep2(uint8_t * src, uint8_t * 
     FilterStep2K<radio, pComputeMax>(src, dst, width, height, tile_w, tile_h);
 }
 
-void FilterDilation(uint8_t * src, uint8_t * dst, uint8_t * temp, int width, int height, int radio) {
+void FilterDilation(uint8_t * src, uint8_t * temp, int width, int height, int radio) {
     // //the host-side function pointer to your __device__ function
     // pointFunction_t h_pointFunction;
 
@@ -93,77 +93,77 @@ void FilterDilation(uint8_t * src, uint8_t * dst, uint8_t * temp, int width, int
         case 1:
             FilterDStep1<1><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<1><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<1><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 2:
             FilterDStep1<2><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<2><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<2><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 3:
             FilterDStep1<3><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<3><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<3><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 4:
             FilterDStep1<4><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<4><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<4><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 5:
             FilterDStep1<5><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<5><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<5><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 6:
             FilterDStep1<6><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<6><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<6><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 7:
             FilterDStep1<7><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<7><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<7><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 8:
             FilterDStep1<8><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<8><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<8><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 9:
             FilterDStep1<9><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<9><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<9><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 10:
             FilterDStep1<10><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<10><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<10><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 11:
             FilterDStep1<11><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<11><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<11><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 12:
             FilterDStep1<12><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<12><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<12><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 13:
             FilterDStep1<13><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<13><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<13><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 14:
             FilterDStep1<14><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<14><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<14><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
         case 15:
             FilterDStep1<15><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
             (cudaDeviceSynchronize());
-            FilterDStep2<15><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
+            FilterDStep2<15><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, src, width, height, tile_w2, tile_h2);
             break;
     }
     cudaError_t cudaerr = cudaDeviceSynchronize();
