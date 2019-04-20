@@ -168,9 +168,9 @@ void GuidedFilter::filter(uchar4 * d_frame, uint8_t * d_alphaMask, uint8_t * d_o
     // mean R
     Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanR, temp, 2);
     // mean G
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanG, temp, 2);
+    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanG, tempF, 2);
     // mean B
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanB, temp, 2);
+    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanB, tempF, 2);
 
     // var RR
     Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_varRR, temp16, 2);
@@ -187,9 +187,9 @@ void GuidedFilter::filter(uchar4 * d_frame, uint8_t * d_alphaMask, uint8_t * d_o
 
     // mean P
     //Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, d_alphaMask, , temp, 2);
-    Gpu::Utils::k_boxFilter_sep_x<uint8_t, float> << <dimGrid, dimBlock >> > (d_alphaMask, temp, 2);
+    Gpu::Utils::k_boxFilter_sep_x<uint8_t, float> << <dimGrid, dimBlock >> > (d_alphaMask, tempF, 2);
     cudaDeviceSynchronize();
-    Gpu::Utils::k_boxFilter_sep_y<float, float> << <dimGrid, dimBlock >> > (temp, m_d_meanP, 2);
+    Gpu::Utils::k_boxFilter_sep_y<< <dimGrid, dimBlock >> > (tempF, m_d_meanP, 2);
     cudaDeviceSynchronize();
 
     // var PR
@@ -199,11 +199,6 @@ void GuidedFilter::filter(uchar4 * d_frame, uint8_t * d_alphaMask, uint8_t * d_o
     // var PB
     Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanPB, temp16, 2);
 
-    /*uint8_t* meanR, uint8_t* meanG, uint8_t* meanB, uint8_t* meanP,
-    uint16_t* varRR, uint16_t* varRG, uint16_t* varRB,
-    uint16_t* varGG, uint16_t* varGB, uint16_t* varBB,
-    uint16_t* meanPR, uint16_t* meanPG, uint16_t* meanPB,
-    float* AR, float* AG, float* AB, float* B, float eps*/
     semi_compute << <dimGrid, dimBlock >> > (m_d_meanR, m_d_meanG, m_d_meanB, m_d_meanP,
         m_d_varRR, m_d_varRG, m_d_varRB, m_d_varGG, m_d_varGB, m_d_varBB,
         m_d_meanPR, m_d_meanPG, m_d_meanPB, m_d_AR, m_d_AG, m_d_AB, m_d_B, 1e-5f

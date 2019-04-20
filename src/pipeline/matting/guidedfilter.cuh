@@ -6,6 +6,7 @@
 #include "../../common/config.h"
 #include "../../util/gpuutil.cuh"
 
+
 class GuidedFilter {
     private:
         int m_size;
