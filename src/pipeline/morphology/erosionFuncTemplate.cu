@@ -1,4 +1,6 @@
 
+#include <stdint.h>
+
 typedef int(*pointFunction_t)(int, int);
 
 __device__ inline int pComputeMin(int a, int b) {
@@ -9,7 +11,8 @@ __device__ inline int pComputeMax(int a, int b) {
     return (a>b) ? a : b;
 }
 
-template<const int radio, const pointFunction_t pPointOperation> __device__ void FilterStep2K(int * src, int * dst, int width, int height, int tile_w, int tile_h) {
+template<const int radio, const pointFunction_t pPointOperation> 
+__device__ void FilterStep2K(uint8_t * src, uint8_t * dst, int width, int height, int tile_w, int tile_h) {
     extern __shared__ int smem[];
     int tx = threadIdx.x;
     int ty = threadIdx.y;
@@ -36,7 +39,8 @@ template<const int radio, const pointFunction_t pPointOperation> __device__ void
     dst[y * width + x] = val;
 }
 
-template<const int radio, const pointFunction_t pPointOperation> __device__ void FilterStep1K(int * src, int * dst, int width, int height, int tile_w, int tile_h) {
+template<const int radio, const pointFunction_t pPointOperation> 
+__device__ void FilterStep1K(uint8_t * src, uint8_t * dst, int width, int height, int tile_w, int tile_h) {
     extern __shared__ int smem[];
     int tx = threadIdx.x;
     int ty = threadIdx.y;
@@ -63,116 +67,16 @@ template<const int radio, const pointFunction_t pPointOperation> __device__ void
     dst[y * width + x] = val;
 }
 
-template<const int radio> __global__ void FilterStep1(int * src, int * dst, int width, int height, int tile_w, int tile_h) {
-    FilterStep1K<radio, pComputeMin>(src, dst, width, height, tile_w, tile_h);
-}
 
-template<const int radio> __global__ void FilterStep2(int * src, int * dst, int width, int height, int tile_w, int tile_h) {
-    FilterStep2K<radio, pComputeMin>(src, dst, width, height, tile_w, tile_h);
-}
-
-void Filter(int * src, int * dst, int * temp, int width, int height, int radio) {
-    // //the host-side function pointer to your __device__ function
-    // pointFunction_t h_pointFunction;
-
-    // //in host code: copy the function pointers to their host equivalent
-    // cudaMemcpyFromSymbol(&h_pointFunction, pComputeMin, sizeof(pointFunction_t));
-
-    int tile_w1 = 256, tile_h1 = 1;
-    dim3 block2(tile_w1 + (2 * radio), tile_h1);
-    dim3 grid2(ceil((float)width / tile_w1), ceil((float)height / tile_h1));
-    int tile_w2 = 4, tile_h2 = 64;
-    dim3 block3(tile_w2, tile_h2 + (2 * radio));
-    dim3 grid3(ceil((float)width / tile_w2), ceil((float)height / tile_h2));
-    switch (radio) {
-        case 1:
-            FilterStep1<1><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<1><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 2:
-            FilterStep1<2><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<2><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 3:
-            FilterStep1<3><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<3><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 4:
-            FilterStep1<4><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<4><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 5:
-            FilterStep1<5><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<5><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 6:
-            FilterStep1<6><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<6><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 7:
-            FilterStep1<7><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<7><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 8:
-            FilterStep1<8><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<8><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 9:
-            FilterStep1<9><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<9><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 10:
-            FilterStep1<10><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<10><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 11:
-            FilterStep1<11><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<11><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 12:
-            FilterStep1<12><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<12><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 13:
-            FilterStep1<13><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<13><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 14:
-            FilterStep1<14><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<14><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-        case 15:
-            FilterStep1<15><<<grid2,block2,block2.y*block2.x*sizeof(int)>>>(src, temp, width, height, tile_w1, tile_h1);
-            (cudaDeviceSynchronize());
-            FilterStep2<15><<<grid3,block3,block3.y*block3.x*sizeof(int)>>>(temp, dst, width, height, tile_w2, tile_h2);
-            break;
-    }
-    cudaError_t cudaerr = cudaDeviceSynchronize();
-}
-
-template<const int radio> __global__ void FilterDStep1(int * src, int * dst, int width, int height, int tile_w, int tile_h) {
+template<const int radio> __global__ void FilterDStep1(uint8_t * src, uint8_t * dst, int width, int height, int tile_w, int tile_h) {
     FilterStep1K<radio, pComputeMax>(src, dst, width, height, tile_w, tile_h);
 }
 
-template<const int radio> __global__ void FilterDStep2(int * src, int * dst, int width, int height, int tile_w, int tile_h) {
+template<const int radio> __global__ void FilterDStep2(uint8_t * src, uint8_t * dst, int width, int height, int tile_w, int tile_h) {
     FilterStep2K<radio, pComputeMax>(src, dst, width, height, tile_w, tile_h);
 }
 
-void FilterDilation(int * src, int * dst, int * temp, int width, int height, int radio) {
+void FilterDilation(uint8_t * src, uint8_t * dst, uint8_t * temp, int width, int height, int radio) {
     // //the host-side function pointer to your __device__ function
     // pointFunction_t h_pointFunction;
 

@@ -1,5 +1,6 @@
 
 #include <helper_cuda.h>       // helper for CUDA Error handling and initialization
+#include <stdint.h>
 
 /**
  * Naive erosion kernel with each thread processing a square area.
@@ -143,7 +144,8 @@ void ErosionTwoStepsShared(int * src, int * dst, int * temp, int width, int heig
     cudaerr = cudaDeviceSynchronize();
 }
 
-template<const int radio> __global__ void ErosionTemplateSharedStep2(int * src, int * dst, int width, int height, int tile_w, int tile_h) {
+template<const int radio> __global__ void ErosionTemplateSharedStep2(
+    uint8_t * src, uint8_t * dst, int width, int height, int tile_w, int tile_h) {
     extern __shared__ int smem[];
     int tx = threadIdx.x;
     int ty = threadIdx.y;
@@ -170,7 +172,8 @@ template<const int radio> __global__ void ErosionTemplateSharedStep2(int * src, 
     dst[y * width + x] = val;
 }
 
-template<const int radio> __global__ void ErosionTemplateSharedStep1(int * src, int * dst, int width, int height, int tile_w, int tile_h) {
+template<const int radio> __global__ void ErosionTemplateSharedStep1(
+    uint8_t * src, uint8_t * dst, int width, int height, int tile_w, int tile_h) {
     extern __shared__ int smem[];
     int tx = threadIdx.x;
     int ty = threadIdx.y;
@@ -197,7 +200,7 @@ template<const int radio> __global__ void ErosionTemplateSharedStep1(int * src, 
     dst[y * width + x] = val;
 }
 
-void ErosionTemplateSharedTwoSteps(int * src, int * dst, int * temp, int width, int height, int radio) {
+void ErosionTemplateSharedTwoSteps(uint8_t * src, uint8_t * dst, uint8_t * temp, int width, int height, int radio) {
     int tile_w1 = 256, tile_h1 = 1;
     dim3 block2(tile_w1 + (2 * radio), tile_h1);
     dim3 grid2(ceil((float)width / tile_w1), ceil((float)height / tile_h1));
