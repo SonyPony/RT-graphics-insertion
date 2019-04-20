@@ -32,8 +32,8 @@ namespace Gpu {
         void generateRandStates(RandState** d_rs, size_t count);
 
         /**
-    r means radius (kernel size = 5 means r = 2)
-*/
+            r means radius (kernel size = 5 means r = 2)
+        */
         template<typename T, typename U>
         __global__ void k_boxFilter_sep_x(T* input, U* output, int r) {
             const int x = blockDim.x * blockIdx.x + threadIdx.x;
@@ -50,72 +50,6 @@ namespace Gpu {
             outputValue /= (2.f * r + 1);
 
             output[x + y * FRAME_WIDTH] = outputValue;
-        }
-
-        template<typename T, typename U>
-        __global__ void k_boxFilter_sep_x_shared(T* input, U* output, int r) {
-            const int x = blockDim.x * blockIdx.x + threadIdx.x;
-            const int y = blockDim.y * blockIdx.y + threadIdx.y;
-
-            __shared__ T buffer[16][20];
-            if (x <= r - 1 || x >= FRAME_WIDTH - r || y <= r - 1 || y >= FRAME_HEIGHT - r) {
-                output[x + y * FRAME_WIDTH] = 0;
-                if (threadIdx.x < 2) {
-                    buffer[threadIdx.y][threadIdx.x] = 0;
-                    buffer[threadIdx.y][threadIdx.x + 18] = 0;
-                }
-
-                return;
-            }
-
-            buffer[threadIdx.y][2 + threadIdx.x] = input[x + y * FRAME_WIDTH];
-            if (threadIdx.x < 2) {
-                buffer[threadIdx.y][threadIdx.x] = input[x + threadIdx.x - 2 + y * FRAME_WIDTH];
-                buffer[threadIdx.y][threadIdx.x + 18] = input[x + 18 + threadIdx.x + y * FRAME_WIDTH];
-            }
-
-            __syncthreads();
-
-
-
-            float outputValue = 0.f;
-            for (int i = -r; i <= r; i++) //x
-                outputValue += buffer[threadIdx.y][threadIdx.x + 2 + i];
-
-            output[x + y * FRAME_WIDTH] = outputValue / (2 * r + 1);
-        }
-
-        template<typename T, typename U>
-        __global__ void k_boxFilter_sep_y_shared(T* input, U* output, int r) {
-            const int x = blockDim.x * blockIdx.x + threadIdx.x;
-            const int y = blockDim.y * blockIdx.y + threadIdx.y;
-
-            __shared__ T buffer[16][20];
-            if (x <= r - 1 || x >= FRAME_WIDTH - r || y <= r - 1 || y >= FRAME_HEIGHT - r) {
-                output[x + y * FRAME_WIDTH] = 0;
-                if (threadIdx.y < 2) {
-                    buffer[threadIdx.x][threadIdx.y] = 0;
-                    buffer[threadIdx.x][threadIdx.y + 18] = 0;
-                }
-
-                return;
-            }
-
-            buffer[threadIdx.x][2 + threadIdx.y] = input[x + y * FRAME_WIDTH];
-            if (threadIdx.y < 2) {
-                buffer[threadIdx.x][threadIdx.y] = input[x + (y + threadIdx.y - 2) * FRAME_WIDTH];
-                buffer[threadIdx.x][threadIdx.y + 18] = input[x + (y + 18 + threadIdx.y) * FRAME_WIDTH];
-            }
-
-            __syncthreads();
-
-
-
-            float outputValue = 0.f;
-            for (int i = -r; i <= r; i++) //x
-                outputValue += buffer[threadIdx.x][threadIdx.y + 2 + i];
-
-            output[x + y * FRAME_WIDTH] = outputValue / (2 * r + 1);
         }
 
         template<typename T, typename U>
