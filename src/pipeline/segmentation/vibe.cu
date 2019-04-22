@@ -6,23 +6,24 @@
 #include "../../common/config.h"
 
 
-__global__ void k_segment(uint8_t* input, uint8_t* model, uint8_t* dest, int size, int currentSample, RandState* randState) {
-    constexpr int stride = 4;    // 4 bytes strides
-    const int id = (blockDim.x * blockIdx.x + threadIdx.x);
-    const int pixel_i = id * stride;
+__global__ void k_segment(uchar4* input, uchar4* model, uint8_t* dest, int currentSample, RandState* randState) {
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = x + y * FRAME_WIDTH;
 
-    const float localInput[3] = { (float)input[pixel_i] , (float)input[pixel_i + 1] , (float)input[pixel_i + 2] };
+    const uchar4 inputPixel = input[id];
 
     int count = 0;
-    for (int j = 0; j < 20; j++) {
-        const int sample_i = size * j * 3;
-        float distance = norm3df(
-            localInput[0] - model[id + sample_i],
-            localInput[1] - model[id + sample_i + size],
-            localInput[2] - model[id + sample_i + size * 2]
+    for (int j = 0; j < Gpu::ViBe::SAMPLE_COUNT; j++) {
+        const uchar4 bgSamplePixel = model[id + j * FRAME_SIZE];
+
+        const float distance = norm3df(
+            static_cast<float>(inputPixel.x) - bgSamplePixel.x,
+            static_cast<float>(inputPixel.y) - bgSamplePixel.y,
+            static_cast<float>(inputPixel.z) - bgSamplePixel.z
         );
 
-        if (distance < 20)
+        if (distance < Gpu::ViBe::COLOR_RADIUS)
             count++;
     }
 
@@ -34,41 +35,37 @@ __global__ void k_segment(uint8_t* input, uint8_t* model, uint8_t* dest, int siz
     uint8_t rand = Gpu::Utils::devRand(localRandState) * 16;
     if (rand == 0 && !isForeground) {
         for (int i = 0; i < 3; i++)
-            model[id + currentSample + i * size] = localInput[i];
+            model[id + currentSample + i * FRAME_SIZE] = inputPixel;
     }
 
     rand = Gpu::Utils::devRand(localRandState) * 16;
     // todo change to something like stencil?
     if (rand == 0 && !isForeground) {
         for (int i = 0; i < 3; i++)
-            model[id + currentSample + i * size] = localInput[i];
+            model[id + currentSample + i * FRAME_SIZE] = inputPixel;
     }
 
     randState[id] = localRandState;
 }
 
-__global__ void k_initBackgroundModelSamples(uint8_t* input, uint8_t* dest, uint8_t samplesCount, int size) {
-    constexpr int stride = 4;    // 4 bytes strides
-    const int rgba_i = (blockDim.x * blockIdx.x + threadIdx.x) * stride;
-    const int i = (blockDim.x * blockIdx.x + threadIdx.x);
-    const int pixelffset = (i % size) * 3;
+__global__ void k_initBackgroundModelSamples(uchar4* input, uchar4* dest) {
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = x + y * FRAME_WIDTH;
 
-    for (int j = 0; j < samplesCount; j++) {
-        for (int channel = 0; channel < 3; channel++)
-            dest[j * size * 3 + i + channel * size] = input[rgba_i + channel];
-    }
+    const uchar4 inputPixel = input[id];
+
+    for (int sampleIndex = 0; sampleIndex < Gpu::ViBe::SAMPLE_COUNT; sampleIndex++)
+        dest[id + sampleIndex * FRAME_SIZE] = input[id];
 }
 
-Gpu::ViBe::ViBe(int width, int height)
-    : m_width{ width }, m_height(height), m_size(height * width) {
-    const int modelSampleSize = m_size * Config::CHANNELS_COUNT_BG_SAMPLE;
-    const int modelSize = modelSampleSize * ViBe::SAMPLE_COUNT;
-
+Gpu::ViBe::ViBe(uint8_t* d_tempBuffer) {
+    m_d_temp = d_tempBuffer;
     // init rand states for vibe update
-    Gpu::Utils::generateRandStates(&m_d_randState, m_size);
+    Gpu::Utils::generateRandStates(&m_d_randState, FRAME_SIZE);
 
     // alloc background model on device
-    cudaMalloc(reinterpret_cast<void**>(&m_d_bgModel), modelSize);
+    cudaMalloc(reinterpret_cast<void**>(&m_d_bgModel), ViBe::SAMPLE_COUNT * FRAME_SIZE * sizeof(uchar4));
 }
 
 Gpu::ViBe::~ViBe()
@@ -77,18 +74,24 @@ Gpu::ViBe::~ViBe()
     cudaFree(m_d_randState);
 }
 
-void Gpu::ViBe::initialize(Byte* backgroundModel) {
-    const int sampleSize = m_size * Config::CHANNELS_COUNT_INPUT;
-    uint8_t* d_bgInit = nullptr;
+void Gpu::ViBe::initialize(uint8_t* backgroundModel) {
+    dim3 dimGrid{ 80, 45 };
+    dim3 dimBlock{ 16, 16 };
+    
 
-    cudaMalloc(reinterpret_cast<void**>(&d_bgInit), sampleSize);
-    cudaMemcpy(d_bgInit, backgroundModel, sampleSize, cudaMemcpyHostToDevice);
+    const int sampleSize = FRAME_SIZE * Config::CHANNELS_COUNT_INPUT;
 
-    k_initBackgroundModelSamples<<<900, 1024 >>> (d_bgInit, m_d_bgModel, ViBe::SAMPLE_COUNT, m_width * m_height);
+    cudaMemcpy(m_d_temp, backgroundModel, FRAME_SIZE * sizeof(uchar4), cudaMemcpyHostToDevice);
+    uchar4* d_bgInit = reinterpret_cast<uchar4*>(m_d_temp);
+
+    k_initBackgroundModelSamples<<<dimGrid, dimBlock>>> (d_bgInit, m_d_bgModel);
 }
 
-Byte* Gpu::ViBe::segment(Byte* d_input, Byte* d_dest) {
-    k_segment<<<1800, 512>>> (d_input, m_d_bgModel, d_dest, m_size, 0, m_d_randState);
+uchar4* Gpu::ViBe::segment(uchar4* d_input, uint8_t* d_dest) {
+    dim3 dimGrid{ 80, 45 };
+    dim3 dimBlock{ 16, 16 };
+
+    k_segment<<<dimGrid, dimBlock>>> (d_input, m_d_bgModel, d_dest, 0, m_d_randState);
 
     auto err = cudaGetLastError();
     std::cout << cudaGetErrorName(err);

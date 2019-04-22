@@ -10,22 +10,22 @@ using Gpu::Utils::RandState;
 
 namespace Gpu {
     class ViBe {
-        private:
+        public:
             static constexpr uint8_t SAMPLE_COUNT = 20;
+            static constexpr uint8_t COLOR_RADIUS = 20;
 
-            Byte* m_d_bgModel;
+        private:
+            uchar4* m_d_bgModel;
             RandState* m_d_randState;
-
-            const int m_width;
-            const int m_height;
-            const int m_size;
+            
+            uint8_t* m_d_temp;
 
         public:
-            ViBe(int width, int height);
+            ViBe(uint8_t* d_tempBuffer);
             ~ViBe();
 
-            void initialize(Byte* backgroundModel);
-            Byte* segment(Byte* d_input, Byte* d_dest);
+            void initialize(uint8_t* backgroundModel);
+            uchar4* segment(uchar4* d_input, uint8_t* d_dest);
     };
     
 }
