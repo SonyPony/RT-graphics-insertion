@@ -7,10 +7,11 @@
 
 #include <npp.h>
 
-Gpu::InsertionGraphicsPipeline::InsertionGraphicsPipeline(int width, int height) 
-    : m_width{ width }, m_height{ height }, m_size{ height * width } {
-    m_segmenter = new ViBe(width, height);
-    m_matting = new GlobalSampling(width, height);
+Gpu::InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
+    cudaMalloc(reinterpret_cast<void**>(&m_d_temp_C4_UC), FRAME_SIZE * 4);  // single channel
+
+    m_segmenter = new ViBe(m_d_temp_C4_UC);
+    m_matting = new GlobalSampling;
 
     // alloc buffers on device
     cudaMalloc(reinterpret_cast<void**>(&m_d_frame), m_size * Config::CHANNELS_COUNT_INPUT);
@@ -31,26 +32,26 @@ void Gpu::InsertionGraphicsPipeline::initialize(Byte * frame)
     m_segmenter->initialize(frame);
 }
 
-void Gpu::InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * output, /*temp*/ Byte* trimap)
+void Gpu::InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * output)
 {
     cudaSetDevice(0);
 
     // segmentation
-    cudaMemcpy(m_d_frame, input, m_size * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
-    Byte* d_background = m_segmenter->segment(m_d_frame, m_d_segmentation);
-    cudaMemcpy(output, m_d_segmentation, m_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(m_d_frame, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
+    /*Byte* d_background = */m_segmenter->segment(d_frame, m_d_segmentation);
+    cudaMemcpy(output, m_d_segmentation, FRAME_SIZE, cudaMemcpyDeviceToHost);
 
 
     uint8_t* d_shadowIntensity;
-    cudaMalloc(reinterpret_cast<void**>(&d_shadowIntensity), m_size);
+    cudaMalloc(reinterpret_cast<void**>(&d_shadowIntensity), FRAME_SIZE);
     uint8_t* d_trimap;
-    cudaMalloc(reinterpret_cast<void**>(&d_trimap), m_size);
+    cudaMalloc(reinterpret_cast<void**>(&d_trimap), FRAME_SIZE);
 
     uint8_t* d_temp;
     uint8_t* d_temp2;
-    cudaMalloc(reinterpret_cast<void**>(&d_temp), m_size);
-    cudaMalloc(reinterpret_cast<void**>(&d_temp2), m_size);
-    cudaMemcpy(d_temp2, m_d_segmentation, m_size, cudaMemcpyDeviceToDevice);
+    cudaMalloc(reinterpret_cast<void**>(&d_temp), FRAME_SIZE);
+    cudaMalloc(reinterpret_cast<void**>(&d_temp2), FRAME_SIZE);
+    cudaMemcpy(d_temp2, m_d_segmentation, FRAME_SIZE, cudaMemcpyDeviceToDevice);
 
     
     
@@ -61,7 +62,7 @@ void Gpu::InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte
     trimapGen.generate(d_temp, m_d_segmentation);*/
 
     // matting
-    cudaMemcpy(m_d_trimap, trimap, m_size, cudaMemcpyHostToDevice);
+    //cudaMemcpy(m_d_trimap, trimap, FRAME_SIZE, cudaMemcpyHostToDevice);
     //m_matting->matting(m_d_frame, m_d_trimap, d_background, m_d_segmentation);
 
     dim3 dimGrid{ 80, 45 };
@@ -86,5 +87,5 @@ void Gpu::InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte
     m_matting->matting(m_d_frame, d_trimap, d_background, m_d_segmentation);
 
     // TEST output
-    cudaMemcpy(output, m_d_segmentation, m_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(output, m_d_segmentation, FRAME_SIZE, cudaMemcpyDeviceToHost);
 }

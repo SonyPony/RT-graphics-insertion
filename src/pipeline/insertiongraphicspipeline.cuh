@@ -12,10 +12,6 @@ namespace Gpu {
     class InsertionGraphicsPipeline
     {
         private:
-            const int m_width;
-            const int m_height;
-            const int m_size;
-
             ViBe* m_segmenter;
             GlobalSampling* m_matting;
 
@@ -25,12 +21,12 @@ namespace Gpu {
             Byte* m_d_trimap;
 
         public:
-            InsertionGraphicsPipeline(int width, int height);
+            InsertionGraphicsPipeline();
             ~InsertionGraphicsPipeline();
 
         public:
             void initialize(Byte* frame);
-            void process(Byte* input, Byte* graphics, Byte* output, /*temp*/ Byte* trimap);
+            void process(Byte* input, Byte* graphics, Byte* output);
     };
 }
 
