@@ -373,7 +373,7 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
         /*k_fast_sampleMatch << <dimGrid, dimBlock >> > (d_bestSamples, d_mattingSamples, d_trimap, d_frame, d_unknownPixels,
             unknownPixelsCount, d_output, m_d_randStates,
             countBorder, m_width, m_height);*/
-        cudaDeviceSynchronize();
+        //cudaDeviceSynchronize();
     }
 
     cudaMemset(d_output, 0, m_size);
@@ -383,10 +383,8 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     uint8_t* temp = nullptr;
     cudaMalloc(reinterpret_cast<void**>(&temp), m_size);
     cudaMemcpy(temp, d_output, m_size, cudaMemcpyDeviceToDevice);
-    //k_convolve_x << <dimGrid, dimBlock >> > (temp, d_output);*/
 
-    /*k_convolve_sep_y << <dimGrid, dimBlock >> > (temp, temp_x);
-    k_convolve_sep_x << <dimGrid, dimBlock >> > (temp_x, d_output);*/
+    //Gpu::Utils::boxFilter<uint8_t>(dimGrid, dimBlock, d_output, temp, 2, false);
 
     using namespace std::chrono;
     high_resolution_clock::time_point t1 = high_resolution_clock::now();
@@ -395,7 +393,7 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
 
     auto duration = duration_cast<microseconds>(t2 - t1).count();
 
-    cout << duration << std::endl;;
+    cout << "time" << duration << std::endl;;
     //-----------
 
     cudaDeviceSynchronize();
