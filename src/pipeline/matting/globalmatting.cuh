@@ -50,20 +50,18 @@ struct __align__(16) MattingSample
 
 //typedef __device_builtin__ struct UnknownPixel UnknownPixel;
 
-namespace Gpu {
-    class GlobalSampling {
-        private:
-            static constexpr float COLOR_COST_COEFF = 10.f;
+class GlobalSampling {
+    private:
+        static constexpr float COLOR_COST_COEFF = 10.f;
 
-            RandState* m_d_randStates;
-            GuidedFilter m_guidedFilter;
+        RandState* m_d_randStates;
+        GuidedFilter m_guidedFilter;
 
-        public:
-            GlobalSampling();
+    public:
+        GlobalSampling();
 
-            void matting(Byte* d_image, Byte* d_trimap, Byte* d_background, Byte* d_output);
-    };
+        void matting(Byte* d_image, Byte* d_trimap, Byte* d_background, Byte* d_output);
+};
 
-}
 
 #endif

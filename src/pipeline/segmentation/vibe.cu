@@ -14,7 +14,7 @@ __global__ void k_segment(uchar4* input, uchar4* model, uint8_t* dest, int curre
     const uchar4 inputPixel = input[id];
 
     int count = 0;
-    for (int j = 0; j < Gpu::ViBe::SAMPLE_COUNT; j++) {
+    for (int j = 0; j < ViBe::SAMPLE_COUNT; j++) {
         const uchar4 bgSamplePixel = model[id + j * FRAME_SIZE];
 
         const float distance = norm3df(
@@ -23,12 +23,12 @@ __global__ void k_segment(uchar4* input, uchar4* model, uint8_t* dest, int curre
             static_cast<float>(inputPixel.z) - bgSamplePixel.z
         );
 
-        if (distance < Gpu::ViBe::COLOR_RADIUS)
+        if (distance < ViBe::COLOR_RADIUS)
             count++;
     }
 
     const int isForeground = (count < 2);
-    dest[id] = isForeground * 255;
+    dest[id] = isForeground * FOREGROUND;
 
     // update
     RandState localRandState = randState[id];
@@ -55,11 +55,11 @@ __global__ void k_initBackgroundModelSamples(uchar4* input, uchar4* dest) {
 
     const uchar4 inputPixel = input[id];
 
-    for (int sampleIndex = 0; sampleIndex < Gpu::ViBe::SAMPLE_COUNT; sampleIndex++)
+    for (int sampleIndex = 0; sampleIndex < ViBe::SAMPLE_COUNT; sampleIndex++)
         dest[id + sampleIndex * FRAME_SIZE] = input[id];
 }
 
-Gpu::ViBe::ViBe(uint8_t* d_tempBuffer) {
+ViBe::ViBe(uint8_t* d_tempBuffer) {
     m_d_temp = d_tempBuffer;
     // init rand states for vibe update
     Gpu::Utils::generateRandStates(&m_d_randState, FRAME_SIZE);
@@ -68,13 +68,13 @@ Gpu::ViBe::ViBe(uint8_t* d_tempBuffer) {
     cudaMalloc(reinterpret_cast<void**>(&m_d_bgModel), ViBe::SAMPLE_COUNT * FRAME_SIZE * sizeof(uchar4));
 }
 
-Gpu::ViBe::~ViBe()
+ViBe::~ViBe()
 {
     cudaFree(m_d_bgModel);
     cudaFree(m_d_randState);
 }
 
-void Gpu::ViBe::initialize(uint8_t* backgroundModel) {
+void ViBe::initialize(uint8_t* backgroundModel) {
     dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };
     
@@ -87,7 +87,7 @@ void Gpu::ViBe::initialize(uint8_t* backgroundModel) {
     k_initBackgroundModelSamples<<<dimGrid, dimBlock>>> (d_bgInit, m_d_bgModel);
 }
 
-uchar4* Gpu::ViBe::segment(uchar4* d_input, uint8_t* d_dest) {
+uchar4* ViBe::segment(uchar4* d_input, uint8_t* d_dest) {
     dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };
 

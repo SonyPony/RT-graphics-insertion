@@ -6,31 +6,41 @@
 #include "../common/common.h"
 #include "segmentation/vibe.cuh"
 #include "matting/globalmatting.cuh"
+#include "segmentation/shadow_detector.cuh"
+
+class InsertionGraphicsPipeline
+{
+    private:
+        ViBe* m_segmenter;
+        ShadowDetector* m_shadowDectector;
+        GlobalSampling* m_matting;
+
+        // device buffers
+        uint8_t* m_d_frame;
+        uint8_t* m_d_segmentation;
+        uint8_t* m_d_trimap;
+        uint8_t* m_d_shadowIntensity;
 
 
-namespace Gpu {
-    class InsertionGraphicsPipeline
-    {
-        private:
-            ViBe* m_segmenter;
-            GlobalSampling* m_matting;
+        cv::cuda::GpuMat m_d_rgbFrame;
+        cv::cuda::GpuMat m_d_rgbBg; 
+        cv::cuda::GpuMat m_d_rgbGraphics;
 
-            // device buffers
-            Byte* m_d_frame;
-            Byte* m_d_segmentation;
-            Byte* m_d_trimap;
+        cv::cuda::GpuMat m_d_labFrame;
+        cv::cuda::GpuMat m_d_labBg;
+        cv::cuda::GpuMat m_d_labGraphics;
+            
+        // temp buffers
+        uint8_t* m_d_temp_C4_UC;
 
-            // temp buffers
-            uint8_t* m_d_temp_C4_UC;
+    public:
+        InsertionGraphicsPipeline();
+        ~InsertionGraphicsPipeline();
 
-        public:
-            InsertionGraphicsPipeline();
-            ~InsertionGraphicsPipeline();
+    public:
+        void initialize(Byte* frame);
+        void process(Byte* input, Byte* graphics, Byte* output);
+};
 
-        public:
-            void initialize(Byte* frame);
-            void process(Byte* input, Byte* graphics, Byte* output);
-    };
-}
 
 #endif

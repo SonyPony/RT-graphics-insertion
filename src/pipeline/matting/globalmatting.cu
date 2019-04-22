@@ -12,7 +12,7 @@ using namespace std;
 
 __constant__ int c_frameSize[2];
 
-Gpu::GlobalSampling::GlobalSampling() {
+GlobalSampling::GlobalSampling() {
     Gpu::Utils::generateRandStates(&m_d_randStates, FRAME_SIZE);
 }
 
@@ -278,7 +278,7 @@ __global__ void k_renderMatting(uint8_t* alphaMask, UnknownPixel* unknownPixels,
     alphaMask[pixelId] = pixelInfo.currentAlpha;
 }
 
-void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_background, Byte * d_output)
+void GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_background, Byte * d_output)
 {
     // MATTING
     uint16_t* d_fgBorderX = nullptr;

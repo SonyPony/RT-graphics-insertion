@@ -57,22 +57,43 @@ __global__ void k_sobel_sep_h(short2* input, short2* output) {
 }
 
 __global__ void k_testLab(uchar4* frame, uint8_t* out) {
-            const int x = blockDim.x * blockIdx.x + threadIdx.x;
-            const int y = blockDim.y * blockIdx.y + threadIdx.y;
-            const int id = x + y * FRAME_WIDTH;
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = x + y * FRAME_WIDTH;
 
-            uchar4 pixel = frame[id];
-            uint8_t lab = Gpu::Utils::cvtRGB2GRAY(pixel);
+    uchar4 pixel = frame[id];
+    uint8_t lab = Gpu::Utils::cvtRGB2GRAY(pixel);
 
-            out[id] = lab;
-        }
+    out[id] = lab;
+}
 
-void Gpu::Utils::foolab(dim3 dimGrid, dim3 dimBlock, uchar4* d_frame, uint8_t* out) {
-    k_testLab << <dimGrid, dimBlock >> > (d_frame, out);
+__global__ void k_dualcvtRGBA2RGB(uchar4* in1, uchar4* in2,
+    uint8_t* out1, uint8_t* out2) {
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = x + y * FRAME_WIDTH;
+
+    const uchar4 in1Pixel = in1[id];
+    const uchar4 in2Pixel = in2[id];
+
+    out1[id * 3] = in1Pixel.x;
+    out1[id * 3 + 1] = in1Pixel.y;
+    out1[id * 3 + 2] = in1Pixel.z;
+
+    out2[id * 3] = in2Pixel.x;
+    out2[id * 3 + 1] = in2Pixel.y;
+    out2[id * 3 + 2] = in2Pixel.z;
+
+    // TODO graphics
 }
 
 void Gpu::Utils::gradients(dim3 dimGrid, dim3 dimBlock, uint8_t * input, short2 * temp, short2 * dest)
 {
     k_sobel_sep_v << <dimGrid, dimBlock >> > (input, temp);
     k_sobel_sep_h << <dimGrid, dimBlock >> > (temp, dest);
+}
+
+void Gpu::Utils::dualCvtRGBA2RGB(dim3 dimGrid, dim3 dimBlock, uchar4* d_in1, uchar4* d_in2,
+    uint8_t* d_out1, uint8_t* d_out2) {
+    k_dualcvtRGBA2RGB << <dimGrid, dimBlock >> > (d_in1, d_in2, d_out1, d_out2);
 }
