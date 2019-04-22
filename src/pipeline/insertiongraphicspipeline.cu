@@ -14,9 +14,10 @@ Gpu::InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
     m_matting = new GlobalSampling;
 
     // alloc buffers on device
-    cudaMalloc(reinterpret_cast<void**>(&m_d_frame), m_size * Config::CHANNELS_COUNT_INPUT);
-    cudaMalloc(reinterpret_cast<void**>(&m_d_segmentation), m_size);    // single channel
-    cudaMalloc(reinterpret_cast<void**>(&m_d_trimap), m_size);  // single channel
+    cudaMalloc(reinterpret_cast<void**>(&m_d_frame), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
+    cudaMalloc(reinterpret_cast<void**>(&m_d_segmentation), FRAME_SIZE);    // single channel
+    cudaMalloc(reinterpret_cast<void**>(&m_d_trimap), FRAME_SIZE);  // single channel
+    
 
 }
 

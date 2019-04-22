@@ -55,15 +55,11 @@ namespace Gpu {
         private:
             static constexpr float COLOR_COST_COEFF = 10.f;
 
-            const int m_width;
-            const int m_height;
-            const int m_size;
-
             RandState* m_d_randStates;
             GuidedFilter m_guidedFilter;
 
         public:
-            GlobalSampling(int width, int height);
+            GlobalSampling();
 
             void matting(Byte* d_image, Byte* d_trimap, Byte* d_background, Byte* d_output);
     };

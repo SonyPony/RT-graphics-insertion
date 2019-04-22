@@ -12,9 +12,8 @@ using namespace std;
 
 __constant__ int c_frameSize[2];
 
-Gpu::GlobalSampling::GlobalSampling(int width, int height)
-    : m_width{ width }, m_height{ height }, m_size{ width * height } {
-    Gpu::Utils::generateRandStates(&m_d_randStates, m_size);
+Gpu::GlobalSampling::GlobalSampling() {
+    Gpu::Utils::generateRandStates(&m_d_randStates, FRAME_SIZE);
 }
 
 __global__ void k_initBestSamples(MattingSample* samples, int samplesCount, uint8_t* trimap, MattingSample** bestSamples,
@@ -302,17 +301,17 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
 
     float* d_dists = nullptr;
     cudaMalloc(reinterpret_cast<void**>(&fgBorderPointsCount), sizeof(uint32_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderX), m_size * sizeof(uint16_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderY), m_size * sizeof(uint16_t));
+    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderX), FRAME_SIZE * sizeof(uint16_t));
+    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderY), FRAME_SIZE * sizeof(uint16_t));
 
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownPixels), m_size * sizeof(UnknownPixel));
-    cudaMalloc(reinterpret_cast<void**>(&d_mattingSamples), m_size * sizeof(MattingSample));
-    cudaMalloc(reinterpret_cast<void**>(&d_bestSamples), m_size * sizeof(MattingSample*));
-    cudaMalloc(reinterpret_cast<void**>(&d_bestSamplesIndexes), m_size * sizeof(int));
+    cudaMalloc(reinterpret_cast<void**>(&d_unknownPixels), FRAME_SIZE * sizeof(UnknownPixel));
+    cudaMalloc(reinterpret_cast<void**>(&d_mattingSamples), FRAME_SIZE * sizeof(MattingSample));
+    cudaMalloc(reinterpret_cast<void**>(&d_bestSamples), FRAME_SIZE * sizeof(MattingSample*));
+    cudaMalloc(reinterpret_cast<void**>(&d_bestSamplesIndexes), FRAME_SIZE * sizeof(int));
     cudaMalloc(reinterpret_cast<void**>(&d_unknownPixelsCount), sizeof(int));
 
     /*NEW-----------*/
-    cudaMalloc(reinterpret_cast<void**>(&d_fgBoundaryPos), m_size * sizeof(ushort2));
+    cudaMalloc(reinterpret_cast<void**>(&d_fgBoundaryPos), FRAME_SIZE * sizeof(ushort2));
 
 
     /*--------------*/
@@ -320,8 +319,8 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     cudaMemset(reinterpret_cast<void*>(fgBorderPointsCount), 0, sizeof(uint16_t));
 
     cudaMalloc(reinterpret_cast<void**>(&d_unknownCount), sizeof(uint32_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownX), m_size * sizeof(uint16_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownY), m_size * sizeof(uint16_t));
+    cudaMalloc(reinterpret_cast<void**>(&d_unknownX), FRAME_SIZE * sizeof(uint16_t));
+    cudaMalloc(reinterpret_cast<void**>(&d_unknownY), FRAME_SIZE * sizeof(uint16_t));
     cudaMemset(reinterpret_cast<void*>(d_unknownCount), 0, sizeof(uint16_t));
 
 
@@ -356,13 +355,13 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
     
 
     std::cout << "Unknown count " << countBorder << std::endl;
-    int frameSize[] = { m_width, m_height };
+    int frameSize[] = { FRAME_WIDTH, FRAME_HEIGHT };
     cudaMemcpyToSymbol(c_frameSize, frameSize, sizeof(int) * 2);
 
     
 
     k_initBestSamples << <dimGrid, dimBlock >> > (d_mattingSamples, countBorder, d_trimap, d_bestSamples, 
-        d_bestSamplesIndexes, m_d_randStates, m_width, m_height);
+        d_bestSamplesIndexes, m_d_randStates, FRAME_WIDTH, FRAME_HEIGHT);
     cudaDeviceSynchronize();
     
     for (int i = 0; i < 10; i++) {
@@ -372,17 +371,17 @@ void Gpu::GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_backg
 
         /*k_fast_sampleMatch << <dimGrid, dimBlock >> > (d_bestSamples, d_mattingSamples, d_trimap, d_frame, d_unknownPixels,
             unknownPixelsCount, d_output, m_d_randStates,
-            countBorder, m_width, m_height);*/
+            countBorder, FRAME_WIDTH, FRAME_HEIGHT);*/
         //cudaDeviceSynchronize();
     }
 
-    cudaMemset(d_output, 0, m_size);
+    cudaMemset(d_output, 0, FRAME_SIZE);
     k_renderMatting << <dimGrid, dimBlock >> > (d_output, d_unknownPixels, unknownPixelsCount, d_trimap);
 
     // test convolve
     uint8_t* temp = nullptr;
-    cudaMalloc(reinterpret_cast<void**>(&temp), m_size);
-    cudaMemcpy(temp, d_output, m_size, cudaMemcpyDeviceToDevice);
+    cudaMalloc(reinterpret_cast<void**>(&temp), FRAME_SIZE);
+    cudaMemcpy(temp, d_output, FRAME_SIZE, cudaMemcpyDeviceToDevice);
 
     //Gpu::Utils::boxFilter<uint8_t>(dimGrid, dimBlock, d_output, temp, 2, false);
 
