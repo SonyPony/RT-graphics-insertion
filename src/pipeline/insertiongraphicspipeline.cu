@@ -2,7 +2,10 @@
 #include "../common/config.h"
 #include "../pipeline/morphology/erosion.h"
 #include "../pipeline/morphology/erosionFuncTemplate.h"
+#include "../pipeline/trimap/trimap_generator.cuh"
+#include "../pipeline/segmentation/shadow_detector.cuh"
 
+#include <npp.h>
 
 Gpu::InsertionGraphicsPipeline::InsertionGraphicsPipeline(int width, int height) 
     : m_width{ width }, m_height{ height }, m_size{ height * width } {
@@ -38,6 +41,11 @@ void Gpu::InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte
     cudaMemcpy(output, m_d_segmentation, m_size, cudaMemcpyDeviceToHost);
 
 
+    uint8_t* d_shadowIntensity;
+    cudaMalloc(reinterpret_cast<void**>(&d_shadowIntensity), m_size);
+    uint8_t* d_trimap;
+    cudaMalloc(reinterpret_cast<void**>(&d_trimap), m_size);
+
     uint8_t* d_temp;
     uint8_t* d_temp2;
     cudaMalloc(reinterpret_cast<void**>(&d_temp), m_size);
@@ -45,18 +53,37 @@ void Gpu::InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte
     cudaMemcpy(d_temp2, m_d_segmentation, m_size, cudaMemcpyDeviceToDevice);
 
     
-    ErosionTemplateSharedTwoSteps(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 2);
-    FilterDilation(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 2);
-
     
-    FilterDilation(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 1);
-    ErosionTemplateSharedTwoSteps(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 1);
     
     // trimap
+    /*TrimapGenerator trimapGen;
+    cudaMemcpy(d_temp, m_d_segmentation, m_size, cudaMemcpyDeviceToDevice);
+    trimapGen.generate(d_temp, m_d_segmentation);*/
 
     // matting
     cudaMemcpy(m_d_trimap, trimap, m_size, cudaMemcpyHostToDevice);
-    m_matting->matting(m_d_frame, m_d_trimap, d_background, m_d_segmentation);
+    //m_matting->matting(m_d_frame, m_d_trimap, d_background, m_d_segmentation);
+
+    dim3 dimGrid{ 80, 45 };
+    dim3 dimBlock{ 16, 16 };
+
+    uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
+    //cudaMemcpy(m_d_segmentation, d_temp2, m_size, cudaMemcpyDeviceToDevice);
+    ShadowDetector shadowDectector;
+    shadowDectector.process(d_frame, m_d_segmentation, d_background, d_shadowIntensity);
+
+    
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 2);
+    FilterDilation(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 2);
+
+
+    FilterDilation(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 1);
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 1);
+
+    TrimapGenerator trimapGen;
+    trimapGen.generate(m_d_segmentation, d_trimap);
+
+    m_matting->matting(m_d_frame, d_trimap, d_background, m_d_segmentation);
 
     // TEST output
     cudaMemcpy(output, m_d_segmentation, m_size, cudaMemcpyDeviceToHost);
