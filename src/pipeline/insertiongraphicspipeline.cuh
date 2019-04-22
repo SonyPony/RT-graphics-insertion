@@ -20,6 +20,9 @@ namespace Gpu {
             Byte* m_d_segmentation;
             Byte* m_d_trimap;
 
+            // temp buffers
+            uint8_t* m_d_temp_C4_UC;
+
         public:
             InsertionGraphicsPipeline();
             ~InsertionGraphicsPipeline();

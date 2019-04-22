@@ -25,6 +25,10 @@ Gpu::InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
 {
     cudaFree(m_d_frame);
     cudaFree(m_d_segmentation);
+    cudaFree(m_d_temp_C4_UC);
+    cudaFree(m_d_trimap);
+
+    delete m_matting;
     delete m_segmenter;
 }
 
@@ -36,6 +40,8 @@ void Gpu::InsertionGraphicsPipeline::initialize(Byte * frame)
 void Gpu::InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * output)
 {
     cudaSetDevice(0);
+
+    uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
 
     // segmentation
     cudaMemcpy(m_d_frame, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
