@@ -153,7 +153,7 @@ template<const int radio> __global__ void ErosionTemplateSharedStep2(
     int by = blockIdx.y;
     int x = bx * tile_w + tx;
     int y = by * tile_h + ty - radio;
-    smem[ty * blockDim.x + tx] = 255;
+    smem[ty * blockDim.x + tx] = 1024;
     __syncthreads();
     if (x >= width || y < 0 || y >= height) {
         return;
@@ -168,7 +168,10 @@ template<const int radio> __global__ void ErosionTemplateSharedStep2(
 #pragma unroll
     for (int yy = 1; yy <= 2 * radio; yy++) {
         val = min(val, smem_thread[yy * blockDim.x]);
+
     }
+    if (val == 1024)
+        val = 0;
     dst[y * width + x] = val;
 }
 
@@ -181,7 +184,7 @@ template<const int radio> __global__ void ErosionTemplateSharedStep1(
     int by = blockIdx.y;
     int x = bx * tile_w + tx - radio;
     int y = by * tile_h + ty;
-    smem[ty * blockDim.x + tx] = 255;
+    smem[ty * blockDim.x + tx] = 1024;
     __syncthreads();
     if (x < 0 || x >= width || y >= height) {
         return;
@@ -197,6 +200,8 @@ template<const int radio> __global__ void ErosionTemplateSharedStep1(
     for (int xx = 1; xx <= 2 * radio; xx++) {
         val = min(val, smem_thread[xx]);
     }
+    if (val == 1024)
+        val = 0;
     dst[y * width + x] = val;
 }
 
