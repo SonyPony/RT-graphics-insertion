@@ -32,14 +32,14 @@ __global__ void k_segment(uint8_t* input, uint8_t* model, uint8_t* dest, int siz
     // update
     RandState localRandState = randState[id];
     uint8_t rand = Gpu::Utils::devRand(localRandState) * 16;
-    if (rand == 0) {
+    if (rand == 0 && !isForeground) {
         for (int i = 0; i < 3; i++)
             model[id + currentSample + i * size] = localInput[i];
     }
 
     rand = Gpu::Utils::devRand(localRandState) * 16;
     // todo change to something like stencil?
-    if (rand == 0) {
+    if (rand == 0 && !isForeground) {
         for (int i = 0; i < 3; i++)
             model[id + currentSample + i * size] = localInput[i];
     }
