@@ -10,8 +10,6 @@ ShadowDetector::ShadowDetector() {
 
     cudaMalloc(reinterpret_cast<void**>(&m_d_grayFrame), FRAME_WIDTH * FRAME_HEIGHT);
     cudaMalloc(reinterpret_cast<void**>(&m_d_grayBg), FRAME_WIDTH * FRAME_HEIGHT);
-
-    
 }
 
 ShadowDetector::~ShadowDetector()
@@ -33,14 +31,6 @@ __global__ void k_grayscaleInputs(uchar4* frame, uchar4* bgModel, uint8_t* outFr
 
     outFrame[id] = Gpu::Utils::cvtRGB2GRAY(framePixel);
     outBgModel[id] = Gpu::Utils::cvtRGB2GRAY(bgPixel);
-
-    /*bgrBg[id * 3] = bgPixel.z;
-    bgrBg[id * 3 + 1] = bgPixel.y;
-    bgrBg[id * 3 + 2] = bgPixel.x;
-
-    bgrFrame[id * 3] = framePixel.z;
-    bgrFrame[id * 3 + 1] = framePixel.y;
-    bgrFrame[id * 3 + 2] = framePixel.x;*/
 }
 
 __global__ void k_segmentShadow(short2* frameGrads, 
@@ -90,9 +80,6 @@ void ShadowDetector::process(uchar4* frame, uint8_t * d_segmentationMask, uchar4
 
     Gpu::Utils::gradients(dimGrid, dimBlock, m_d_grayFrame, m_d_temp16, m_d_gradsFrame);
     Gpu::Utils::gradients(dimGrid, dimBlock, m_d_grayBg, m_d_temp16, m_d_gradsBg);
-
-   /* cv::cuda::cvtColor(m_d_bgrBg, m_d_labBg, cv::COLOR_BGR2Lab);
-    cv::cuda::cvtColor(m_d_bgrFrame, m_d_labFrame, cv::COLOR_BGR2Lab*/
 
     k_segmentShadow << <dimGrid, dimBlock >> > (m_d_gradsFrame, m_d_gradsBg, 
         d_segmentationMask, dest, labFrame, labBg);

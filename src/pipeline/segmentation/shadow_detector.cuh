@@ -26,12 +26,6 @@ class ShadowDetector {
         uint8_t* m_d_grayBg;
         uint8_t* m_d_grayFrame;
 
-        /*cv::cuda::GpuMat m_d_bgrFrame;
-        cv::cuda::GpuMat m_d_bgrBg;
-
-        cv::cuda::GpuMat m_d_labFrame;
-        cv::cuda::GpuMat m_d_labBg;
-        */
     public:
         ShadowDetector();
         ~ShadowDetector();
