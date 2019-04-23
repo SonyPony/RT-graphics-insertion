@@ -6,6 +6,7 @@
 #define FRAME_WIDTH 1280
 #define FRAME_HEIGHT 720
 #define FRAME_SIZE (FRAME_WIDTH * FRAME_HEIGHT)
+#define GRAPHICS_OPACITY 0.5f
 
 class Config {
     public:
