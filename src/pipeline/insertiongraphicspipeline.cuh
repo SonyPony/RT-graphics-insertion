@@ -9,6 +9,7 @@
 #include "segmentation/shadow_detector.cuh"
 
 #include "../pipeline/trimap/trimap_generator.cuh"
+#include "../pipeline/composer/composer.cuh"
 
 class InsertionGraphicsPipeline
 {
@@ -17,12 +18,15 @@ class InsertionGraphicsPipeline
         ShadowDetector* m_shadowDectector;
         TrimapGenerator* m_trimapGenerator;
         GlobalSampling* m_matting;
+        Composer* m_composer;
 
         // device buffers
         uint8_t* m_d_frame;
         uint8_t* m_d_segmentation;
         uint8_t* m_d_trimap;
         uint8_t* m_d_shadowIntensity;
+        uint8_t* m_d_graphicsAlphaMask;
+        uint8_t* m_d_output;
 
 
         cv::cuda::GpuMat m_d_rgbFrame;
@@ -37,6 +41,8 @@ class InsertionGraphicsPipeline
         cv::Size m_graphicsSize;
 
         cv::cuda::GpuMat m_d_transformedGraphics;
+
+        cv::Ptr<cv::cuda::Filter> m_blurFilter;
 
         // temp buffers
         uint8_t* m_d_temp_C4_UC;

@@ -10,6 +10,8 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline(
 ) {
     cudaMalloc(reinterpret_cast<void**>(&m_d_temp_C4_UC), FRAME_SIZE * 4);  // single channel
 
+    m_blurFilter = cv::cuda::createGaussianFilter(CV_8UC1, CV_8UC1, cv::Size{ 5, 5 }, 5);
+
     m_graphicsSize = graphicsSize;
     cv::Point2f srcPoints[4];
     srcPoints[0] = cv::Point2f{ 0.f, 0.f };
@@ -23,12 +25,15 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline(
     m_shadowDectector = new ShadowDetector;
     m_trimapGenerator = new TrimapGenerator;
     m_matting = new GlobalSampling(m_d_temp_C4_UC);
+    m_composer = new Composer(m_d_temp_C4_UC);
 
     // alloc buffers on device
     cudaMalloc(reinterpret_cast<void**>(&m_d_frame), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
     cudaMalloc(reinterpret_cast<void**>(&m_d_segmentation), FRAME_SIZE);    // single channel
     cudaMalloc(reinterpret_cast<void**>(&m_d_trimap), FRAME_SIZE);  // single channel
     cudaMalloc(reinterpret_cast<void**>(&m_d_shadowIntensity), FRAME_SIZE);  // single channel
+    cudaMalloc(reinterpret_cast<void**>(&m_d_graphicsAlphaMask), FRAME_SIZE);  // single channel
+    cudaMalloc(reinterpret_cast<void**>(&m_d_output), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
 
     m_d_transformedGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC4);
     m_d_rgbBg = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
@@ -46,11 +51,14 @@ InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
     cudaFree(m_d_temp_C4_UC);
     cudaFree(m_d_trimap);
     cudaFree(m_d_shadowIntensity);
+    cudaFree(m_d_graphicsAlphaMask);
+    cudaFree(m_d_output);
 
     delete m_matting;
     delete m_shadowDectector;
     delete m_segmenter;
     delete m_trimapGenerator;
+    delete m_composer;
 }
 
 void InsertionGraphicsPipeline::initialize(Byte * frame)
@@ -75,22 +83,34 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     );
 
     uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
+    uchar4* d_graphics = reinterpret_cast<uchar4*>(m_d_transformedGraphics.ptr());
 
     // segmentation
     uchar4* d_background = m_segmenter->segment(d_frame, m_d_segmentation);
 
-    // convert to LAB
+    // split alpha channel
     Gpu::Utils::dualCvtRGBA2RGB(
         dimGrid, dimBlock, 
         d_frame, d_background,
         m_d_rgbFrame.ptr(), m_d_rgbBg.ptr());
+    Gpu::Utils::cvtRGBA2RGB_A(
+        dimGrid, dimBlock, d_graphics, m_d_rgbGraphics.ptr(), m_d_graphicsAlphaMask
+    );
+
+    // convert to LAB
     cv::cuda::cvtColor(m_d_rgbBg, m_d_labBg, cv::COLOR_RGB2Lab);
     cv::cuda::cvtColor(m_d_rgbFrame, m_d_labFrame, cv::COLOR_RGB2Lab);
+    cv::cuda::cvtColor(m_d_rgbGraphics, m_d_labGraphics, cv::COLOR_RGB2Lab);
     // TODO graphics
     
     // shadow segmentation
     m_shadowDectector->process(d_frame, m_d_segmentation, d_background, 
         m_d_labFrame.ptr(), m_d_labBg.ptr(), m_d_shadowIntensity);
+    m_blurFilter->apply(
+        cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_shadowIntensity),
+        cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_temp_C4_UC)
+    );
+    cudaMemcpy(m_d_shadowIntensity, m_d_temp_C4_UC, FRAME_SIZE, cudaMemcpyDeviceToDevice);
 
     // mophology refinement
     ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
@@ -105,14 +125,19 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     // image matting
     m_matting->matting(d_frame, m_d_trimap, d_background, m_d_segmentation);
 
-
+    // assemble
+    m_composer->compose(
+        m_d_segmentation, m_d_shadowIntensity, 
+        m_d_rgbFrame.ptr(), m_d_labFrame.ptr(), m_d_labGraphics.ptr(), m_d_labBg.ptr(),
+        m_d_graphicsAlphaMask, m_d_output
+    );
 
     // TEST output
-   cv::Mat outMat;
+   /*cv::Mat outMat;
     outMat.create(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4);
     m_d_transformedGraphics.download(outMat);
-    std::cout << "dfdf" << m_d_transformedGraphics.isContinuous() <<std::endl;
+    std::cout << "dfdf" << m_d_transformedGraphics.isContinuous() <<std::endl*/;
 
     //*output = outMat.data;
-    memcpy(output, outMat.data, FRAME_SIZE * 4);
+    cudaMemcpy(output, m_d_output, FRAME_SIZE * 4, cudaMemcpyDeviceToHost);
 }

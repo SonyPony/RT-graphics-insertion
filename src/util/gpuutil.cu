@@ -83,8 +83,20 @@ __global__ void k_dualcvtRGBA2RGB(uchar4* in1, uchar4* in2,
     out2[id * 3] = in2Pixel.x;
     out2[id * 3 + 1] = in2Pixel.y;
     out2[id * 3 + 2] = in2Pixel.z;
+}
 
-    // TODO graphics
+__global__ void k_cvtRGBA2RGB_a(uchar4* in, uint8_t* out, uint8_t* outAlpha) {
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = x + y * FRAME_WIDTH;
+
+    const uchar4 inPixel = in[id];
+
+    out[id * 3] = inPixel.x;
+    out[id * 3 + 1] = inPixel.y;
+    out[id * 3 + 2] = inPixel.z;
+
+    outAlpha[id] = (inPixel.w != 0) * 255;
 }
 
 void Gpu::Utils::gradients(dim3 dimGrid, dim3 dimBlock, uint8_t * input, short2 * temp, short2 * dest)
@@ -96,4 +108,9 @@ void Gpu::Utils::gradients(dim3 dimGrid, dim3 dimBlock, uint8_t * input, short2 
 void Gpu::Utils::dualCvtRGBA2RGB(dim3 dimGrid, dim3 dimBlock, uchar4* d_in1, uchar4* d_in2,
     uint8_t* d_out1, uint8_t* d_out2) {
     k_dualcvtRGBA2RGB << <dimGrid, dimBlock >> > (d_in1, d_in2, d_out1, d_out2);
+}
+
+void Gpu::Utils::cvtRGBA2RGB_A(dim3 dimGrid, dim3 dimBlock, uchar4 * d_in, uint8_t * d_out, uint8_t * d_outAlpha)
+{
+    k_cvtRGBA2RGB_a << <dimGrid, dimBlock >> > (d_in, d_out, d_outAlpha);
 }

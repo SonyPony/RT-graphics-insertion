@@ -94,6 +94,11 @@ namespace Gpu {
             uchar4* d_in1, uchar4* d_in2, 
             uint8_t* d_out1, uint8_t* d_out2
         );
+
+        void cvtRGBA2RGB_A(
+            dim3 dimGrid, dim3 dimBlock,
+            uchar4* d_in, uint8_t* d_out, uint8_t* d_outAlpha
+        );
     }
 }
 
