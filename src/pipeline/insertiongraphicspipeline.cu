@@ -5,14 +5,24 @@
 #include "../pipeline/segmentation/shadow_detector.cuh"
 
 
-InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
+InsertionGraphicsPipeline::InsertionGraphicsPipeline(
+    cv::Size graphicsSize, cv::Point2f dstPoints[]
+) {
     cudaMalloc(reinterpret_cast<void**>(&m_d_temp_C4_UC), FRAME_SIZE * 4);  // single channel
+
+    m_graphicsSize = graphicsSize;
+    cv::Point2f srcPoints[4];
+    srcPoints[0] = cv::Point2f{ 0.f, 0.f };
+    srcPoints[1] = cv::Point2f{ (float)graphicsSize.width, 0.f };
+    srcPoints[2] = cv::Point2f{ 0.f, (float)graphicsSize.height };
+    srcPoints[3] = cv::Point2f{ (float)graphicsSize.width, (float)graphicsSize.height };
+
+    m_transformMat = cv::getPerspectiveTransform(srcPoints, dstPoints);
 
     m_segmenter = new ViBe(m_d_temp_C4_UC);
     m_shadowDectector = new ShadowDetector;
     m_trimapGenerator = new TrimapGenerator;
     m_matting = new GlobalSampling(m_d_temp_C4_UC);
-
 
     // alloc buffers on device
     cudaMalloc(reinterpret_cast<void**>(&m_d_frame), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
@@ -20,7 +30,7 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
     cudaMalloc(reinterpret_cast<void**>(&m_d_trimap), FRAME_SIZE);  // single channel
     cudaMalloc(reinterpret_cast<void**>(&m_d_shadowIntensity), FRAME_SIZE);  // single channel
 
-
+    m_d_transformedGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC4);
     m_d_rgbBg = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
     m_d_rgbFrame = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
     m_d_rgbGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
@@ -56,6 +66,14 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
 
     // copy data
     cudaMemcpy(m_d_frame, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
+    cudaMemcpy(m_d_temp_C4_UC, graphics, m_graphicsSize.area() * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
+     
+    // transform graphics
+    cv::cuda::warpPerspective(
+        cv::cuda::GpuMat{m_graphicsSize, CV_8UC4, m_d_temp_C4_UC},
+        m_d_transformedGraphics, m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }
+    );
+
     uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
 
     // segmentation
@@ -90,5 +108,11 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
 
 
     // TEST output
-    cudaMemcpy(output, m_d_segmentation, FRAME_SIZE, cudaMemcpyDeviceToHost);
+   cv::Mat outMat;
+    outMat.create(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4);
+    m_d_transformedGraphics.download(outMat);
+    std::cout << "dfdf" << m_d_transformedGraphics.isContinuous() <<std::endl;
+
+    //*output = outMat.data;
+    memcpy(output, outMat.data, FRAME_SIZE * 4);
 }

@@ -32,12 +32,17 @@ class InsertionGraphicsPipeline
         cv::cuda::GpuMat m_d_labFrame;
         cv::cuda::GpuMat m_d_labBg;
         cv::cuda::GpuMat m_d_labGraphics;
-            
+        
+        cv::Mat m_transformMat;
+        cv::Size m_graphicsSize;
+
+        cv::cuda::GpuMat m_d_transformedGraphics;
+
         // temp buffers
         uint8_t* m_d_temp_C4_UC;
 
     public:
-        InsertionGraphicsPipeline();
+        InsertionGraphicsPipeline(cv::Size graphicsSize, cv::Point2f dstPoints[]);
         ~InsertionGraphicsPipeline();
 
     public:
