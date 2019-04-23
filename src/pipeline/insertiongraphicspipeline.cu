@@ -87,48 +87,7 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     // image matting
     m_matting->matting(d_frame, m_d_trimap, d_background, m_d_segmentation);
 
-    /*uint8_t* d_shadowIntensity;
-    cudaMalloc(reinterpret_cast<void**>(&d_shadowIntensity), FRAME_SIZE);*/
-    /*uint8_t* d_trimap;
-    cudaMalloc(reinterpret_cast<void**>(&d_trimap), FRAME_SIZE);*/
 
-    /*uint8_t* d_temp;
-    uint8_t* d_temp2;
-    cudaMalloc(reinterpret_cast<void**>(&d_temp), FRAME_SIZE);
-    cudaMalloc(reinterpret_cast<void**>(&d_temp2), FRAME_SIZE);
-    cudaMemcpy(d_temp2, m_d_segmentation, FRAME_SIZE, cudaMemcpyDeviceToDevice);*/
-
-    
-    
-    
-    // trimap
-    /*TrimapGenerator trimapGen;
-    cudaMemcpy(d_temp, m_d_segmentation, m_size, cudaMemcpyDeviceToDevice);
-    trimapGen.generate(d_temp, m_d_segmentation);*/
-
-    // matting
-    //cudaMemcpy(m_d_trimap, trimap, FRAME_SIZE, cudaMemcpyHostToDevice);
-    
-
-/*    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };*/
-
-    /*uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
-    //cudaMemcpy(m_d_segmentation, d_temp2, m_size, cudaMemcpyDeviceToDevice);
-    
-
-    
-    ErosionTemplateSharedTwoSteps(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 2);
-    FilterDilation(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 2);
-
-
-    FilterDilation(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 1);
-    ErosionTemplateSharedTwoSteps(m_d_segmentation, d_temp, FRAME_WIDTH, FRAME_HEIGHT, 1);
-
-    TrimapGenerator trimapGen;
-    trimapGen.generate(m_d_segmentation, d_trimap);
-
-    m_matting->matting(m_d_frame, d_trimap, d_background, m_d_segmentation);*/
 
     // TEST output
     cudaMemcpy(output, m_d_segmentation, FRAME_SIZE, cudaMemcpyDeviceToHost);
