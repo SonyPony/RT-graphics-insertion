@@ -8,11 +8,14 @@
 #include "matting/globalmatting.cuh"
 #include "segmentation/shadow_detector.cuh"
 
+#include "../pipeline/trimap/trimap_generator.cuh"
+
 class InsertionGraphicsPipeline
 {
     private:
         ViBe* m_segmenter;
         ShadowDetector* m_shadowDectector;
+        TrimapGenerator* m_trimapGenerator;
         GlobalSampling* m_matting;
 
         // device buffers

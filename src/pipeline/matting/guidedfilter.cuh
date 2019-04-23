@@ -31,6 +31,8 @@ class GuidedFilter {
         float* m_d_AB;
         float* m_d_B;
 
+        float* m_d_tempF;
+
     public:
         GuidedFilter();
         ~GuidedFilter();

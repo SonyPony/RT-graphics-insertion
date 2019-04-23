@@ -7,56 +7,74 @@
 
 #include "../../common/config.h"
 
-#define GRAY 128
 using namespace std;
 
-__constant__ int c_frameSize[2];
 
-GlobalSampling::GlobalSampling() {
+GlobalSampling::GlobalSampling(uint8_t* d_tempBuffer) {
+    m_d_temp = d_tempBuffer;
+
+    cudaMalloc(reinterpret_cast<void**>(&m_d_unknownPixels), FRAME_SIZE * sizeof(UnknownPixel));
+    cudaMalloc(reinterpret_cast<void**>(&m_d_mattingSamples), FRAME_SIZE * sizeof(MattingSample));
+    cudaMalloc(reinterpret_cast<void**>(&m_d_bestSamplesIndexes), FRAME_SIZE * sizeof(int));
+
+    cudaMalloc(reinterpret_cast<void**>(&m_d_samplesCount), sizeof(uint32_t));
+    cudaMalloc(reinterpret_cast<void**>(&m_d_unknownPixelsCount), sizeof(int));
+
     Gpu::Utils::generateRandStates(&m_d_randStates, FRAME_SIZE);
 }
 
-__global__ void k_initBestSamples(MattingSample* samples, int samplesCount, uint8_t* trimap, MattingSample** bestSamples,
-    int* bestSamplesIndexes, RandState* d_randState, int width, int height) {
+GlobalSampling::~GlobalSampling() {
+    cudaFree(m_d_unknownPixels);
+    cudaFree(m_d_mattingSamples);
+    cudaFree(m_d_bestSamplesIndexes);
+    cudaFree(m_d_samplesCount);
+    cudaFree(m_d_unknownPixelsCount);
+}
+
+__global__ void k_initBestSamples(
+    uint8_t* trimap, MattingSample* samples, uint32_t* samplesCount, 
+    int* bestSamplesIndexes, RandState* d_randState
+) {
     const int x = blockDim.x * blockIdx.x + threadIdx.x;
     const int y = blockDim.y * blockIdx.y + threadIdx.y;
-    const int id = width * y + x;
+    const int id = FRAME_WIDTH * y + x;
 
-    if (x == 0 || x == width - 1 || y == 0 || y == height - 1 || trimap[x + y * width] != 128) {
-        bestSamples[id] = nullptr;
+    if (x == 0 || x == FRAME_WIDTH - 1 || y == 0 || y == FRAME_HEIGHT - 1 
+        || trimap[x + y * FRAME_WIDTH] != UNKNOWN) {
         return;
     }
-
+     // random init best sample
     RandState localRandState = d_randState[id];
-    int sampleIndex = Gpu::Utils::devRand(localRandState) * (samplesCount - 1);
+    const int sampleIndex = Gpu::Utils::devRand(localRandState) * ((*samplesCount) - 1);
     bestSamplesIndexes[id] = sampleIndex;
-    bestSamples[id] = &samples[sampleIndex];
 
     d_randState[id] = localRandState;
 }
 
 __global__ void k_initializeUnknown(
-    uint8_t* trimap, 
-    UnknownPixel* unknownPixels,
-    int* unknownPixelsCount, 
     uchar4* frame,
-    uint8_t* background
-    ) {
+    uint8_t* trimap, 
+    uchar4* background,
+    UnknownPixel* unknownPixels,
+    uint32_t* unknownPixelsCount
+) {
     const int x = blockDim.x * blockIdx.x + threadIdx.x;
     const int y = blockDim.y * blockIdx.y + threadIdx.y;
     const int yOffset = y * FRAME_WIDTH;
-    int i;
+    const int id = x + yOffset;
 
-    if (x == 0 || x == FRAME_WIDTH - 1 || y == 0 || y == FRAME_HEIGHT - 1 || trimap[x + y * FRAME_WIDTH] != GRAY)
+    if (x == 0 || x == FRAME_WIDTH - 1 || y == 0 || y == FRAME_HEIGHT - 1 
+        || trimap[x + y * FRAME_WIDTH] != UNKNOWN)
         return;
 
-    i = atomicAdd(unknownPixelsCount, 1);
+    const int i = atomicAdd(unknownPixelsCount, 1);
     UnknownPixel up;
-    up.bgR = background[(yOffset + x)];
-    up.bgG = background[(yOffset + x) + (FRAME_HEIGHT * FRAME_WIDTH)];
-    up.bgB = background[(yOffset + x) + 2 * (FRAME_HEIGHT * FRAME_WIDTH)];
+    const uchar4 bgPixel = background[id];
+    up.bgR = bgPixel.x;
+    up.bgG = bgPixel.y;
+    up.bgB = bgPixel.z;
 
-    uchar4 framePixel = frame[yOffset + x];
+    const uchar4 framePixel = frame[yOffset + x];
     up.frameR = framePixel.x;
     up.frameG = framePixel.y;
     up.frameB = framePixel.z;
@@ -69,42 +87,25 @@ __global__ void k_initializeUnknown(
 }
 
 __global__ void k_initializeSampleSet(
-    uint8_t* trimap,
-    uint8_t* dest,
-    int width,
-    int height,
-    uint16_t* fgBorderX,
-    uint16_t* fgBorderY,
-    uint32_t* fgBorderCounter,
-
-    uint16_t* unknownX,
-    uint16_t* unknownY,
-    uint32_t* unkownCounter,
-    ushort2* fgBoundaryPos,
-
-    UnknownPixel* unknownPixels,
-    int* unknownPixelsCount,
     uchar4* frame,
-    uint8_t* background,
-    MattingSample* samples
+    uint8_t* trimap,
+    MattingSample* samples,
+    uint32_t* samplesCount
 ) {
     const int x = blockDim.x * blockIdx.x + threadIdx.x;
     const int y = blockDim.y * blockIdx.y + threadIdx.y;
-    const int yOffset = y * width;
-    int i;
+    const int yOffset = y * FRAME_WIDTH;
+    const int id = x + yOffset;
 
-    if (x == 0 || x == width - 1 || y == 0 || y == height - 1 || trimap[x + y * width] != 255)
+    if (x == 0 || x == FRAME_WIDTH - 1 || y == 0 || y == FRAME_HEIGHT - 1 
+        || trimap[id] != FOREGROUND)
         return;
     uchar4 framePixel = frame[FRAME_WIDTH * y + x];
 
     // creating border between unknown area and the foreground
-    if (trimap[x + yOffset + 1] == GRAY || trimap[x + yOffset - 1] == GRAY
-        || trimap[x + yOffset + width] == GRAY || trimap[x + yOffset - width] == GRAY) {
-        i = atomicAdd(fgBorderCounter, 1);
-        fgBorderX[i] = x;
-        fgBorderY[i] = y;
-        fgBoundaryPos[i] = make_ushort2(x, y);
-        dest[x + y * width] = 180;
+    if (trimap[id + 1] == UNKNOWN || trimap[id - 1] == UNKNOWN
+        || trimap[id + FRAME_WIDTH] == UNKNOWN || trimap[id - FRAME_WIDTH] == UNKNOWN) {
+        const int i = atomicAdd(samplesCount, 1);
 
         MattingSample mattingSample;
         mattingSample.x = x;
@@ -112,19 +113,10 @@ __global__ void k_initializeSampleSet(
         mattingSample.R = framePixel.x;
         mattingSample.G = framePixel.y;
         mattingSample.B = framePixel.z;
-        //mattingSample.index = i;
-        
 
         samples[i] = mattingSample;
 
     } // TODO rand vzorky?
-
-    if (trimap[x + yOffset] == GRAY) {
-        i = atomicAdd(unkownCounter, 1);
-        unknownX[i] = x;
-        unknownY[i] = y;
-    }
-
 }
 
 inline __device__ float calculateAlpha(float3 I,
@@ -136,7 +128,7 @@ inline __device__ float calculateAlpha(float3 I,
     return clamp(Gpu::Utils::sum(numerator) / (1e-6f + Gpu::Utils::sum(denominator)), 0.f, 1.f);
 }
 
-inline __device__ float faster_colorCost(float3 I,
+inline __device__ float colorCost(float3 I,
     float3 F, float3 B, float alpha) {
 
     F = I - (F * alpha + B * (1.f - alpha));
@@ -150,48 +142,28 @@ inline __device__ float distanceColor(uint2 pixelPos, uint2 samplePos) {
     return length(fsamplePos - fPixelPos);
 }
 
-/*__global__ void k_convolve_x(uint8_t* input, uint8_t* output) {
-    const int x = blockDim.x * blockIdx.x + threadIdx.x;
-    const int y = blockDim.y * blockIdx.y + threadIdx.y;
-
-    if (x == 0 || x == FRAME_WIDTH - 1 || y == 0 || y == FRAME_HEIGHT - 1)
-        return;
-
-    int kernel[3][3] = {
-        {-1, 0, 1},
-        {-2, 0, 2},
-        {-1, 0, 1}
-    };
-    float outputValue = 0.f;
-
-    for (int i = -1; i <= 1; i++) { //x
-        for (int j = -1; j <= 1; j++) { //y
-            outputValue += kernel[j][i] * input[x + i + (y + j) * FRAME_WIDTH];
-        }
-    }
-
-    output[x + y * FRAME_WIDTH] = (int)outputValue;
-}*/
-
-// TODO del frame
 __global__ void k_faster_sampleMatch(
+    Byte* d_trimap,
     int* bestSamplesIndexes , 
     MattingSample* mattingSamples, 
-    Byte* d_trimap, uchar4* d_frame, 
-    UnknownPixel* unknownPixels, int unknownPixelsCount, Byte* d_dest,
-    RandState* d_randState, uint16_t fgBorderCount) {
-    const int id = (blockDim.x * blockIdx.x + threadIdx.x) + (blockDim.y * blockIdx.y + threadIdx.y) * FRAME_WIDTH;
+    uint32_t* p_samplesCount,
+    UnknownPixel* unknownPixels, 
+    uint32_t* unknownPixelsCount,
+    RandState* d_randState
+) {
+
+    const int id = (blockDim.x * blockIdx.x + threadIdx.x) 
+        + (blockDim.y * blockIdx.y + threadIdx.y) * FRAME_WIDTH;
     const int subId = threadIdx.x * threadIdx.y;
 
-    if (id >= unknownPixelsCount)
+    if (id >= (*unknownPixelsCount))
         return;
     RandState localRandState = d_randState[id];
     UnknownPixel pixelInfo = unknownPixels[id];
     const int pixelId = pixelInfo.x + pixelInfo.y * FRAME_WIDTH;
-
-
     int bestSampleIndex = bestSamplesIndexes[pixelId];
     MattingSample sample = mattingSamples[bestSampleIndex];
+    const uint32_t samplesCount = *p_samplesCount;
 
     __shared__ int s_cost[256];
 
@@ -207,10 +179,9 @@ __global__ void k_faster_sampleMatch(
     // propagation
     for (int dx = (int)pixelInfo.x - 1; dx <= (int)pixelInfo.x + 1; dx++) {
         for (int dy = (int)pixelInfo.y -1; dy <= (int)pixelInfo.y + 1; dy++) {
-            //break;
-            int n_id = dx + dy * 1280;
+            int n_id = dx + dy * FRAME_WIDTH;
 
-            if (d_trimap[n_id] != GRAY)
+            if (d_trimap[n_id] != UNKNOWN)
                 continue;
 
             sampleIndex = bestSamplesIndexes[n_id];
@@ -219,8 +190,11 @@ __global__ void k_faster_sampleMatch(
 
             alpha = calculateAlpha(I, F, B);
 
-            s_cost[subId] = 10 * faster_colorCost(I, F, B, alpha)
-                + norm3df((float)sample.x - (float)pixelInfo.x, (float)sample.y - (float)pixelInfo.y, 0.f);
+            s_cost[subId] = 10 * colorCost(I, F, B, alpha)
+                + norm3df(
+                    (float)sample.x - (float)pixelInfo.x, 
+                    (float)sample.y - (float)pixelInfo.y, 0.f
+                );
 
             if (s_cost[subId] < pixelInfo.bestCost) {
                 pixelInfo.bestCost = s_cost[subId];
@@ -233,18 +207,21 @@ __global__ void k_faster_sampleMatch(
 
 
     // random walk
-    for (float BK = 1.f; BK * fgBorderCount > 1.f; BK *= 0.5f) {
-        sampleIndex = bestSampleIndex + BK * (Gpu::Utils::devRand(localRandState) * 2.f - 1.f) * (fgBorderCount - 1);
-        if (sampleIndex < 0 || sampleIndex >= fgBorderCount)
+    for (float BK = 1.f; BK * samplesCount > 1.f; BK *= 0.5f) {
+        sampleIndex = bestSampleIndex 
+            + BK * (Gpu::Utils::devRand(localRandState) * 2.f - 1.f) * (samplesCount - 1);
+        if (sampleIndex < 0 || sampleIndex >= samplesCount)
             continue;
-        //break;
         sample = mattingSamples[sampleIndex];
 
         F = make_float3(sample.R, sample.G, sample.B);
 
         alpha = calculateAlpha(I, F, B);
-        s_cost[subId] = 10*faster_colorCost(I, F, B, alpha)
-            + norm3df((float)sample.x - (float)pixelInfo.x, (float)sample.y - (float)pixelInfo.y, 0.f);
+        s_cost[subId] = 10*colorCost(I, F, B, alpha)
+            + norm3df(
+                (float)sample.x - (float)pixelInfo.x, 
+                (float)sample.y - (float)pixelInfo.y, 0.f
+            );
 
         // save best sample
         if (s_cost[subId] < pixelInfo.bestCost) {
@@ -254,23 +231,25 @@ __global__ void k_faster_sampleMatch(
         }
     }
 
-    //pixelInfo.currentAlpha = 255;
     unknownPixels[id] = pixelInfo;
     d_randState[id] = localRandState;
-    bestSamplesIndexes[pixelInfo.x + pixelInfo.y * 1280] = bestSampleIndex;
+    bestSamplesIndexes[pixelInfo.x + pixelInfo.y * FRAME_WIDTH] = bestSampleIndex;
 }
 
-#include<chrono>
-
-__global__ void k_renderMatting(uint8_t* alphaMask, UnknownPixel* unknownPixels, int unknownPixelsCount, uint8_t* trimap) {
+__global__ void k_renderMatting(
+    uint8_t* trimap, 
+    UnknownPixel* unknownPixels, 
+    uint32_t* unknownPixelsCount, 
+    uint8_t* alphaMask
+) {
     const int x = blockDim.x * blockIdx.x + threadIdx.x;
     const int y = blockDim.y * blockIdx.y + threadIdx.y;
     const int id = y * FRAME_WIDTH + x;
 
-    if (trimap[id] == 255)
-        alphaMask[id] = 255;
+    if (trimap[id] == FOREGROUND)
+        alphaMask[id] = FOREGROUND;
 
-    if (id >= unknownPixelsCount)
+    if (id >= (*unknownPixelsCount))
         return;
 
     const auto pixelInfo = unknownPixels[id];
@@ -278,125 +257,50 @@ __global__ void k_renderMatting(uint8_t* alphaMask, UnknownPixel* unknownPixels,
     alphaMask[pixelId] = pixelInfo.currentAlpha;
 }
 
-void GlobalSampling::matting(Byte * d_image, Byte * d_trimap, Byte* d_background, Byte * d_output)
+void GlobalSampling::matting(uchar4 * d_frame, Byte * d_trimap, uchar4* d_background, Byte * d_output)
 {
-    // MATTING
-    uint16_t* d_fgBorderX = nullptr;
-    uint16_t* d_fgBorderY = nullptr;
-    uint32_t* fgBorderPointsCount = nullptr;
-    UnknownPixel* d_unknownPixels = nullptr;
-    int* d_unknownPixelsCount = 0;
-    MattingSample* d_mattingSamples = nullptr;
-    int* d_bestSamplesIndexes = nullptr;
-    MattingSample** d_bestSamples = nullptr;
-
-    /*NEW---------*/
-    ushort2* d_fgBoundaryPos = nullptr;
-    /*------------*/
-
-    uint16_t* d_unknownX = nullptr;
-    uint16_t* d_unknownY = nullptr;
-    uint32_t* d_unknownCount = nullptr;
-
-
-    float* d_dists = nullptr;
-    cudaMalloc(reinterpret_cast<void**>(&fgBorderPointsCount), sizeof(uint32_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderX), FRAME_SIZE * sizeof(uint16_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_fgBorderY), FRAME_SIZE * sizeof(uint16_t));
-
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownPixels), FRAME_SIZE * sizeof(UnknownPixel));
-    cudaMalloc(reinterpret_cast<void**>(&d_mattingSamples), FRAME_SIZE * sizeof(MattingSample));
-    cudaMalloc(reinterpret_cast<void**>(&d_bestSamples), FRAME_SIZE * sizeof(MattingSample*));
-    cudaMalloc(reinterpret_cast<void**>(&d_bestSamplesIndexes), FRAME_SIZE * sizeof(int));
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownPixelsCount), sizeof(int));
-
-    /*NEW-----------*/
-    cudaMalloc(reinterpret_cast<void**>(&d_fgBoundaryPos), FRAME_SIZE * sizeof(ushort2));
-
-
-    /*--------------*/
-
-    cudaMemset(reinterpret_cast<void*>(fgBorderPointsCount), 0, sizeof(uint16_t));
-
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownCount), sizeof(uint32_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownX), FRAME_SIZE * sizeof(uint16_t));
-    cudaMalloc(reinterpret_cast<void**>(&d_unknownY), FRAME_SIZE * sizeof(uint16_t));
-    cudaMemset(reinterpret_cast<void*>(d_unknownCount), 0, sizeof(uint16_t));
-
-
     dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };
-    uchar4* d_frame = reinterpret_cast<uchar4*>(d_image);
-    uint32_t count = 0, countBorder, unknownPixelsCount;
+    
+    //uint32_t samplesCount, unknownPixelsCount;
 
-    k_initializeSampleSet<<<dimGrid, dimBlock>>> (
-        d_trimap, d_output, 1280, 720, d_fgBorderX, d_fgBorderY, fgBorderPointsCount,
-        d_unknownX, d_unknownY, d_unknownCount, d_fgBoundaryPos, 
-        d_unknownPixels, d_unknownPixelsCount, d_frame, d_background, d_mattingSamples
+    cudaMemset(reinterpret_cast<void*>(m_d_samplesCount), 0, sizeof(uint32_t));
+    cudaMemset(reinterpret_cast<void*>(m_d_unknownPixelsCount), 0, sizeof(uint32_t));
+
+    // init sample and unkown pixels structures
+    k_initializeSampleSet << <dimGrid, dimBlock >> > (
+        d_frame, d_trimap, m_d_mattingSamples, m_d_samplesCount
     );
 
     k_initializeUnknown << <dimGrid, dimBlock >> > (
-        d_trimap,
-        d_unknownPixels,
-        d_unknownPixelsCount,
-        d_frame,
-        d_background
-        );
+        d_frame, d_trimap, d_background, m_d_unknownPixels, m_d_unknownPixelsCount
+    );
 
-    cudaDeviceSynchronize();
-    cudaMemcpy(&unknownPixelsCount, d_unknownPixelsCount, sizeof(int), cudaMemcpyDeviceToHost);
-    std::cout << "Uknown" << unknownPixelsCount << std::endl;
-    
+    // copy counters
+    //cudaMemcpy(&unknownPixelsCount, m_d_unknownPixelsCount, sizeof(int), cudaMemcpyDeviceToHost);
+    //cudaMemcpy(&samplesCount, m_d_samplesCount, sizeof(uint32_t), cudaMemcpyDeviceToHost);
 
-    //matting res trimap border fg = 7251 without rand
-    
-    cudaMemcpy(&count, d_unknownCount, sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    cudaMemcpy(&countBorder, fgBorderPointsCount, sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    
+    //std::cout << "Uknown" << unknownPixelsCount << std::endl;
 
-    std::cout << "Unknown count " << countBorder << std::endl;
-    int frameSize[] = { FRAME_WIDTH, FRAME_HEIGHT };
-    cudaMemcpyToSymbol(c_frameSize, frameSize, sizeof(int) * 2);
+    // init trimap with random samples
+    k_initBestSamples << <dimGrid, dimBlock >> > (
+        d_trimap, m_d_mattingSamples, m_d_samplesCount, m_d_bestSamplesIndexes, m_d_randStates
+    );
 
-    
-
-    k_initBestSamples << <dimGrid, dimBlock >> > (d_mattingSamples, countBorder, d_trimap, d_bestSamples, 
-        d_bestSamplesIndexes, m_d_randStates, FRAME_WIDTH, FRAME_HEIGHT);
-    cudaDeviceSynchronize();
-    
+    // sample patch
     for (int i = 0; i < 10; i++) {
-        k_faster_sampleMatch << <dimGrid, dimBlock >> > (d_bestSamplesIndexes, d_mattingSamples, d_trimap, d_frame, d_unknownPixels,
-            unknownPixelsCount, d_output, m_d_randStates,
-            countBorder);
-
-        /*k_fast_sampleMatch << <dimGrid, dimBlock >> > (d_bestSamples, d_mattingSamples, d_trimap, d_frame, d_unknownPixels,
-            unknownPixelsCount, d_output, m_d_randStates,
-            countBorder, FRAME_WIDTH, FRAME_HEIGHT);*/
-        //cudaDeviceSynchronize();
+        k_faster_sampleMatch << <dimGrid, dimBlock >> > (
+            d_trimap, m_d_bestSamplesIndexes, m_d_mattingSamples, m_d_samplesCount,
+            m_d_unknownPixels, m_d_unknownPixelsCount, m_d_randStates
+        );
     }
 
-    cudaMemset(d_output, 0, FRAME_SIZE);
-    k_renderMatting << <dimGrid, dimBlock >> > (d_output, d_unknownPixels, unknownPixelsCount, d_trimap);
+    // render alpha mask
+    cudaMemset(m_d_temp, 0, FRAME_SIZE);
+    k_renderMatting << <dimGrid, dimBlock >> > (
+        d_trimap, m_d_unknownPixels, m_d_unknownPixelsCount, m_d_temp
+    );
 
-    // test convolve
-    uint8_t* temp = nullptr;
-    cudaMalloc(reinterpret_cast<void**>(&temp), FRAME_SIZE);
-    cudaMemcpy(temp, d_output, FRAME_SIZE, cudaMemcpyDeviceToDevice);
-
-    //Gpu::Utils::boxFilter<uint8_t>(dimGrid, dimBlock, d_output, temp, 2, false);
-
-    using namespace std::chrono;
-    high_resolution_clock::time_point t1 = high_resolution_clock::now();
-    m_guidedFilter.filter(d_frame, temp, d_output);
-    high_resolution_clock::time_point t2 = high_resolution_clock::now();
-
-    auto duration = duration_cast<microseconds>(t2 - t1).count();
-
-    cout << "time" << duration << std::endl;;
-    //-----------
-
-    cudaDeviceSynchronize();
-    
-    auto err = cudaGetLastError();
-    std::cout << cudaGetErrorName(err);
+    // guided filter
+    m_guidedFilter.filter(d_frame, m_d_temp, d_output);
 }

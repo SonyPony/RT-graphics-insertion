@@ -2,7 +2,6 @@
 #include "../common/config.h"
 #include "../pipeline/morphology/erosion.h"
 #include "../pipeline/morphology/erosionFuncTemplate.h"
-#include "../pipeline/trimap/trimap_generator.cuh"
 #include "../pipeline/segmentation/shadow_detector.cuh"
 
 
@@ -11,7 +10,8 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
 
     m_segmenter = new ViBe(m_d_temp_C4_UC);
     m_shadowDectector = new ShadowDetector;
-    m_matting = new GlobalSampling;
+    m_trimapGenerator = new TrimapGenerator;
+    m_matting = new GlobalSampling(m_d_temp_C4_UC);
 
 
     // alloc buffers on device
@@ -40,6 +40,7 @@ InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
     delete m_matting;
     delete m_shadowDectector;
     delete m_segmenter;
+    delete m_trimapGenerator;
 }
 
 void InsertionGraphicsPipeline::initialize(Byte * frame)
@@ -73,6 +74,19 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     m_shadowDectector->process(d_frame, m_d_segmentation, d_background, 
         m_d_labFrame.ptr(), m_d_labBg.ptr(), m_d_shadowIntensity);
 
+    // mophology refinement
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
+    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
+
+    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
+
+    // trimap generation
+    m_trimapGenerator->generate(m_d_segmentation, m_d_trimap);
+
+    // image matting
+    m_matting->matting(d_frame, m_d_trimap, d_background, m_d_segmentation);
+
     /*uint8_t* d_shadowIntensity;
     cudaMalloc(reinterpret_cast<void**>(&d_shadowIntensity), FRAME_SIZE);*/
     /*uint8_t* d_trimap;
@@ -94,7 +108,7 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
 
     // matting
     //cudaMemcpy(m_d_trimap, trimap, FRAME_SIZE, cudaMemcpyHostToDevice);
-    //m_matting->matting(m_d_frame, m_d_trimap, d_background, m_d_segmentation);
+    
 
 /*    dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };*/

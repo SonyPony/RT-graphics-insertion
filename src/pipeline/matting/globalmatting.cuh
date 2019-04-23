@@ -9,12 +9,6 @@
 
 using Gpu::Utils::RandState;
 
-/*struct __device_builtin__ __builtin_align__(16) float4
-{
-    float x, y, z, w;
-};
-*/
-
 struct __align__(16) UnknownPixel
 {
     uint8_t bgR;
@@ -41,14 +35,8 @@ struct __align__(16) MattingSample
 
     uint16_t x;
     uint16_t y;
-
-    /*uint32_t index;
-
-    uint8_t _;
-    uint32_t __;*/
 };
 
-//typedef __device_builtin__ struct UnknownPixel UnknownPixel;
 
 class GlobalSampling {
     private:
@@ -57,10 +45,21 @@ class GlobalSampling {
         RandState* m_d_randStates;
         GuidedFilter m_guidedFilter;
 
-    public:
-        GlobalSampling();
+        UnknownPixel* m_d_unknownPixels;
+        MattingSample* m_d_mattingSamples;
+        int* m_d_bestSamplesIndexes;
 
-        void matting(Byte* d_image, Byte* d_trimap, Byte* d_background, Byte* d_output);
+        uint32_t* m_d_unknownPixelsCount;
+        uint32_t* m_d_samplesCount;
+
+
+        uint8_t* m_d_temp;
+
+    public:
+        GlobalSampling(uint8_t* d_tempBuffer);
+        ~GlobalSampling();
+
+        void matting(uchar4* d_frame, Byte* d_trimap, uchar4* d_background, Byte* d_output);
 };
 
 
