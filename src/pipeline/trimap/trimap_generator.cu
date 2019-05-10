@@ -29,8 +29,7 @@ __global__ void k_thresholdGrads(short2* grads, uint8_t* dest, uint8_t* destCopy
     const short2 gradient = grads[id];
     const uint8_t thresholded = norm3df(gradient.x, gradient.y, 0.f) > T;
     
-    if (thresholded)
-        dest[id] = 128;
+    dest[id] = thresholded * 128;
     destCopy[id] = thresholded * 255;
 }
 
