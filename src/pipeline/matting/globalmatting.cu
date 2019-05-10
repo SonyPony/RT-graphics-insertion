@@ -246,8 +246,9 @@ __global__ void k_renderMatting(
     const int y = blockDim.y * blockIdx.y + threadIdx.y;
     const int id = y * FRAME_WIDTH + x;
 
-    if (trimap[id] == FOREGROUND)
-        alphaMask[id] = FOREGROUND;
+    const uint8_t trimapVal = trimap[id];
+    if (trimapVal != UNKNOWN)
+        alphaMask[id] = trimapVal;
 
     if (id >= (*unknownPixelsCount))
         return;

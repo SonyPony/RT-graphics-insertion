@@ -27,7 +27,7 @@ struct __align__(16) UnknownPixel
     uint8_t _;
 };
 
-struct __align__(16) MattingSample
+struct __align__(8) MattingSample
 {
     uint8_t R;
     uint8_t G;
@@ -35,6 +35,7 @@ struct __align__(16) MattingSample
 
     uint16_t x;
     uint16_t y;
+    uint8_t _;
 };
 
 

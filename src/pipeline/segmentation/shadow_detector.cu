@@ -57,14 +57,16 @@ __global__ void k_segmentShadow(short2* frameGrads,
         0.f
     );
 
+    uint8_t shadowVal = 0;
     if (colorDist < ShadowDetector::COLOR_RADIUS 
         && segmentationMask[id] == FOREGROUND
         && labFramePixel.x >= ShadowDetector::LIGHTNESS_THRESHOLD
         && labBgPixel.x > labFramePixel.x
         && textureDist < ShadowDetector::TEXTURE_RADIUS) {
         segmentationMask[id] = 0;
-        shadow[id] = labBgPixel.x - labFramePixel.x;
+        shadowVal = labBgPixel.x - labFramePixel.x;
     }
+    shadow[id] = shadowVal;
 }
 
 void ShadowDetector::process(uchar4* frame, uint8_t * d_segmentationMask, uchar4* d_bgModel, 
