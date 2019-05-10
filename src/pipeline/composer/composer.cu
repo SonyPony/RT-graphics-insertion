@@ -2,6 +2,7 @@
 
 
 Composer::Composer(uint8_t* d_tempBuffer) {
+    m_blurFilter = cv::cuda::createGaussianFilter(CV_8UC1, CV_8UC1, cv::Size{ 5, 5 }, 5);
     m_d_temp = d_tempBuffer;
 
     m_d_matBuffer = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC4);
@@ -124,7 +125,11 @@ void Composer::compose(uint8_t * d_alphaMask, uint8_t * d_shadowIntensity,
         cv::COLOR_RGB2Lab
     );
 
-    k_addShadows << <dimGrid, dimBlock >> > (m_d_temp, d_shadowIntensity, d_graphicsMask);
+    m_blurFilter->apply(
+        cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, d_shadowIntensity),
+        cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_temp)
+    );
+    /*k_addShadows << <dimGrid, dimBlock >> > (m_d_temp, d_shadowIntensity, d_graphicsMask);
 
     cv::cuda::cvtColor(
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC3, m_d_temp),

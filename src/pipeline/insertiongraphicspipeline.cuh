@@ -41,8 +41,6 @@ class InsertionGraphicsPipeline
         cv::Mat m_transformMat;
         cv::Size m_graphicsSize;
 
-        cv::Ptr<cv::cuda::Filter> m_blurFilter;
-
         // temp buffers
         uint8_t* m_d_temp_C4_UC;
 

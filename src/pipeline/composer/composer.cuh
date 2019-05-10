@@ -15,6 +15,7 @@
 
 class Composer {
     private:
+        cv::Ptr<cv::cuda::Filter> m_blurFilter;
         cv::cuda::GpuMat m_d_matBuffer;
         uint8_t* m_d_temp;
         uint32_t* m_d_graphicsPixelsCount;

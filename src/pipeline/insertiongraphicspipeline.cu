@@ -11,7 +11,6 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline(
 ) {
     cudaMalloc(reinterpret_cast<void**>(&m_d_temp_C4_UC), FRAME_SIZE * 4);  // single channel
 
-    m_blurFilter = cv::cuda::createGaussianFilter(CV_8UC1, CV_8UC1, cv::Size{ 5, 5 }, 5);
 
     m_graphicsSize = graphicsSize;
     cv::Point2f srcPoints[4];
@@ -118,11 +117,6 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
         // shadow segmentation
         m_shadowDectector->process(d_frame, m_d_segmentation, d_background,
             m_d_labFrame.ptr(), m_d_labBg.ptr(), m_d_shadowIntensity);
-        m_blurFilter->apply(
-            cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_shadowIntensity),
-            cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_temp_C4_UC)
-        );
-        cudaMemcpy(m_d_shadowIntensity, m_d_temp_C4_UC, FRAME_SIZE, cudaMemcpyDeviceToDevice);
 
         // mophology refinement
         ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
