@@ -56,7 +56,7 @@ __global__ void k_initBackgroundModelSamples(uchar4* input, uchar4* dest) {
     const uchar4 inputPixel = input[id];
 
     for (int sampleIndex = 0; sampleIndex < ViBe::SAMPLE_COUNT; sampleIndex++)
-        dest[id + sampleIndex * FRAME_SIZE] = input[id];
+        dest[id + sampleIndex * FRAME_SIZE] = inputPixel;
 }
 
 ViBe::ViBe(uint8_t* d_tempBuffer) {
