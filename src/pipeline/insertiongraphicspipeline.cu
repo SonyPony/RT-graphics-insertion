@@ -3,6 +3,7 @@
 #include "../pipeline/morphology/erosion.h"
 #include "../pipeline/morphology/erosionFuncTemplate.h"
 #include "../pipeline/segmentation/shadow_detector.cuh"
+#include <QDebug>
 
 
 InsertionGraphicsPipeline::InsertionGraphicsPipeline(
@@ -34,8 +35,9 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline(
     cudaMalloc(reinterpret_cast<void**>(&m_d_shadowIntensity), FRAME_SIZE);  // single channel
     cudaMalloc(reinterpret_cast<void**>(&m_d_graphicsAlphaMask), FRAME_SIZE);  // single channel
     cudaMalloc(reinterpret_cast<void**>(&m_d_output), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
+    cudaMalloc(reinterpret_cast<void**>(&m_d_transformedGraphics), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
 
-    m_d_transformedGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC4);
+    //m_d_transformedGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC4);
     m_d_rgbBg = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
     m_d_rgbFrame = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
     m_d_rgbGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
@@ -53,6 +55,7 @@ InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
     cudaFree(m_d_shadowIntensity);
     cudaFree(m_d_graphicsAlphaMask);
     cudaFree(m_d_output);
+    cudaFree(m_d_transformedGraphics);
 
     delete m_matting;
     delete m_shadowDectector;
@@ -74,64 +77,76 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
 
     // copy data
     cudaMemcpy(m_d_frame, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
+    cudaMemset(m_d_temp_C4_UC, 0, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
     cudaMemcpy(m_d_temp_C4_UC, graphics, m_graphicsSize.area() * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
-     
-    // transform graphics
-    cv::cuda::warpPerspective(
-        cv::cuda::GpuMat{m_graphicsSize, CV_8UC4, m_d_temp_C4_UC},
-        m_d_transformedGraphics, m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }
-    );
 
-    uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
-    uchar4* d_graphics = reinterpret_cast<uchar4*>(m_d_transformedGraphics.ptr());
+    //try {
+        // transform graphics
+        /*cv::cuda::warpPerspective(
+            cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
+            m_d_transformedGraphics, m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }
+        );*/
+        cv::cuda::warpPerspective(
+            cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
+            cv::cuda::GpuMat{ cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4, m_d_transformedGraphics },
+            m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }
+        );
+        //cudaDeviceSynchronize();
 
-    // segmentation
-    uchar4* d_background = m_segmenter->segment(d_frame, m_d_segmentation);
+        uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
+        //uchar4* d_graphics = reinterpret_cast<uchar4*>(m_d_transformedGraphics.ptr());
+        uchar4* d_graphics = reinterpret_cast<uchar4*>(m_d_transformedGraphics);
 
-    // split alpha channel
-    Gpu::Utils::dualCvtRGBA2RGB(
-        dimGrid, dimBlock, 
-        d_frame, d_background,
-        m_d_rgbFrame.ptr(), m_d_rgbBg.ptr());
-    Gpu::Utils::cvtRGBA2RGB_A(
-        dimGrid, dimBlock, d_graphics, m_d_rgbGraphics.ptr(), m_d_graphicsAlphaMask
-    );
+        // segmentation
+        uchar4* d_background = m_segmenter->segment(d_frame, m_d_segmentation);
 
-    // convert to LAB
-    cv::cuda::cvtColor(m_d_rgbBg, m_d_labBg, cv::COLOR_RGB2Lab);
-    cv::cuda::cvtColor(m_d_rgbFrame, m_d_labFrame, cv::COLOR_RGB2Lab);
-    cv::cuda::cvtColor(m_d_rgbGraphics, m_d_labGraphics, cv::COLOR_RGB2Lab);
-    // TODO graphics
-    
-    // shadow segmentation
-    m_shadowDectector->process(d_frame, m_d_segmentation, d_background, 
-        m_d_labFrame.ptr(), m_d_labBg.ptr(), m_d_shadowIntensity);
-    m_blurFilter->apply(
-        cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_shadowIntensity),
-        cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_temp_C4_UC)
-    );
-    cudaMemcpy(m_d_shadowIntensity, m_d_temp_C4_UC, FRAME_SIZE, cudaMemcpyDeviceToDevice);
+        // split alpha channel
+        Gpu::Utils::dualCvtRGBA2RGB(
+            dimGrid, dimBlock,
+            d_frame, d_background,
+            m_d_rgbFrame.ptr(), m_d_rgbBg.ptr());
+        Gpu::Utils::cvtRGBA2RGB_A(
+            dimGrid, dimBlock, d_graphics, m_d_rgbGraphics.ptr(), m_d_graphicsAlphaMask
+        );
 
-    // mophology refinement
-    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
-    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
+        // convert to LAB
+        cv::cuda::cvtColor(m_d_rgbBg, m_d_labBg, cv::COLOR_RGB2Lab);
+        cv::cuda::cvtColor(m_d_rgbFrame, m_d_labFrame, cv::COLOR_RGB2Lab);
+        cv::cuda::cvtColor(m_d_rgbGraphics, m_d_labGraphics, cv::COLOR_RGB2Lab);
+        // TODO graphics
 
-    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
-    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
+        // shadow segmentation
+        m_shadowDectector->process(d_frame, m_d_segmentation, d_background,
+            m_d_labFrame.ptr(), m_d_labBg.ptr(), m_d_shadowIntensity);
+        m_blurFilter->apply(
+            cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_shadowIntensity),
+            cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_temp_C4_UC)
+        );
+        cudaMemcpy(m_d_shadowIntensity, m_d_temp_C4_UC, FRAME_SIZE, cudaMemcpyDeviceToDevice);
 
-    // trimap generation
-    m_trimapGenerator->generate(m_d_segmentation, m_d_trimap);
+        // mophology refinement
+        ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
+        FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
 
-    // image matting
-    m_matting->matting(d_frame, m_d_trimap, d_background, m_d_segmentation);
+        FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
+        ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
 
-    // assemble
-    m_composer->compose(
-        m_d_segmentation, m_d_shadowIntensity, 
-        m_d_rgbFrame.ptr(), m_d_labFrame.ptr(), m_d_labGraphics.ptr(), m_d_labBg.ptr(),
-        m_d_graphicsAlphaMask, m_d_output
-    );
+        // trimap generation
+        m_trimapGenerator->generate(m_d_segmentation, m_d_trimap);
 
+        // image matting
+        m_matting->matting(d_frame, m_d_trimap, d_background, m_d_segmentation);
+
+        // assemble
+        m_composer->compose(
+            m_d_segmentation, m_d_shadowIntensity,
+            m_d_rgbFrame.ptr(), m_d_labFrame.ptr(), m_d_labGraphics.ptr(), m_d_labBg.ptr(),
+            m_d_graphicsAlphaMask, m_d_output
+        );
+    /*}
+    catch (const cv::Exception& ex) {
+        qDebug() << ex.what();
+    }*/
     // TEST output
    /*cv::Mat outMat;
     outMat.create(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4);
@@ -139,5 +154,7 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     std::cout << "dfdf" << m_d_transformedGraphics.isContinuous() <<std::endl*/;
 
     //*output = outMat.data;
-    cudaMemcpy(output, m_d_output, FRAME_SIZE * 4, cudaMemcpyDeviceToHost);
+    //m_d_output
+    cudaMemcpy(output, m_d_output, FRAME_SIZE * 3, cudaMemcpyDeviceToHost);
+
 }

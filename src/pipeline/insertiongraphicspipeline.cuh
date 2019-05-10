@@ -28,6 +28,7 @@ class InsertionGraphicsPipeline
         uint8_t* m_d_graphicsAlphaMask;
         uint8_t* m_d_output;
 
+        uint8_t* m_d_transformedGraphics;
 
         cv::cuda::GpuMat m_d_rgbFrame;
         cv::cuda::GpuMat m_d_rgbBg; 
@@ -39,8 +40,6 @@ class InsertionGraphicsPipeline
         
         cv::Mat m_transformMat;
         cv::Size m_graphicsSize;
-
-        cv::cuda::GpuMat m_d_transformedGraphics;
 
         cv::Ptr<cv::cuda::Filter> m_blurFilter;
 
