@@ -147,14 +147,7 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     catch (const cv::Exception& ex) {
         qDebug() << ex.what();
     }*/
-    // TEST output
-   /*cv::Mat outMat;
-    outMat.create(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4);
-    m_d_transformedGraphics.download(outMat);
-    std::cout << "dfdf" << m_d_transformedGraphics.isContinuous() <<std::endl*/;
 
-    //*output = outMat.data;
-    //m_d_output
     cudaMemcpy(output, m_d_output, FRAME_SIZE * 3, cudaMemcpyDeviceToHost);
 
 }
