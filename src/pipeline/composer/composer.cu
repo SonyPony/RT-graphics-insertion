@@ -49,7 +49,7 @@ __global__ void k_addShadows(uint8_t* labFrame, uint8_t* shadowIntensity, uint8_
     if (graphicsMask[id] == 255) {
         labFrame[id * 3] = clamp(
             static_cast<float>(labFrame[id * 3])
-            - static_cast<float>(shadowIntensity[id]),
+            - static_cast<float>(shadowIntensity[id]) * GRAPHICS_OPACITY,
             0.f,
             255.f
         );
