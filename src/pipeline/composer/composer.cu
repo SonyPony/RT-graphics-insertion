@@ -80,8 +80,6 @@ __global__ void k_asemble(uint8_t* rgbFrame, uint8_t* foregroundMask, uint8_t* r
         );
     }
 
-    //float3 resultPixel = { foregroundMask[pixelId], foregroundMask[pixelId + ], foregroundMask[pixelId + 2] };
-
     rgbFrame[pixelId] = resultPixel.x;
     rgbFrame[pixelId + 1] = resultPixel.y;
     rgbFrame[pixelId + 2] = resultPixel.z;
@@ -110,14 +108,13 @@ void Composer::compose(uint8_t * d_alphaMask, uint8_t * d_shadowIntensity,
         d_labGraphics, d_labBg, d_graphicsMask, u_sumL, m_d_graphicsPixelsCount
     );
 
-    cv::cuda::GpuMat tt;
     cv::cuda::cvtColor(
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC3, d_labGraphics),
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC3, m_d_temp),
         cv::COLOR_Lab2RGB
     );
 
-    // aseembling
+    // assembling
     k_asemble << <dimGrid, dimBlock >> > (d_rgbFrame, d_alphaMask, m_d_temp, d_graphicsMask);
     
     // add shadows
@@ -128,7 +125,6 @@ void Composer::compose(uint8_t * d_alphaMask, uint8_t * d_shadowIntensity,
     );
 
     k_addShadows << <dimGrid, dimBlock >> > (m_d_temp, d_shadowIntensity, d_graphicsMask);
-
 
     cv::cuda::cvtColor(
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC3, m_d_temp),
