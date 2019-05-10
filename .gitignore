@@ -32,3 +32,6 @@ GeneratedFiles/
 *.exe
 *.out
 *.app
+*.vcxproj
+*.filters
+*.png
