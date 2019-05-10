@@ -7,6 +7,7 @@
 
 namespace Utils {
     uchar* getImgRawData(const QString& filePath, QImage::Format format);
+    uchar* getImgRawData(const QImage& img, QImage::Format format);
 }
 
 #endif // !UTIL

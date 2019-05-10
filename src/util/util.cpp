@@ -24,3 +24,22 @@ uchar* Utils::getImgRawData(const QString& filePath, QImage::Format format) {
 
     return copiedData;
 };
+
+uchar* Utils::getImgRawData(const QImage& img, QImage::Format format) {
+    // TOOD make nicier
+    int bytesPerPixel = 1;
+    if (format == QImage::Format_RGBA8888)
+        bytesPerPixel = 4;
+    else if (format == QImage::Format_RGB888)
+        bytesPerPixel = 3;
+
+    QImage img2 = img.convertToFormat(format);
+
+    const size_t bytesCount = img.width() * img.height() * bytesPerPixel;
+    uchar* bits = img2.bits();
+    uchar* copiedData = new uchar[bytesCount];
+
+    std::memcpy(copiedData, bits, bytesCount);
+
+    return copiedData;
+};
