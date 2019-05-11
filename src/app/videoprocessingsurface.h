@@ -39,7 +39,7 @@ class VideoProcessingSurface: public QAbstractVideoSurface
         QRect videoRect() const { return m_targetRect; }
         void updateVideoRect();
 
-        void paint(QPainter *painter);
+        void paint(QPainter *painter, const QImage& graphics);
 
 public slots:
     void initBgModel();

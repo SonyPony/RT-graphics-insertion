@@ -131,7 +131,7 @@ bool VideoProcessingSurface::present(const QVideoFrame &frame)
 }
 
 
-void VideoProcessingSurface::paint(QPainter *painter)
+void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
 {
     const QImage::Format imageFormat = 
         QVideoFrame::imageFormatFromPixelFormat(m_currentFrame.pixelFormat());
@@ -181,19 +181,14 @@ void VideoProcessingSurface::paint(QPainter *painter)
 
         // processing
         if (ii) {
-            std::cout << "Frame: " << (i++) << std::endl;
+            //std::cout << "Frame: " << (i++) << std::endl;
+            uint8_t* rawGraphics = graphics.convertToFormat(QImage::Format_RGBA8888).bits();
+            // TODO change to rawGraphics
             m_pipeline->process(im.bits(), m_graphics, m_out);
+            
             QImage outIm{ m_out, im.width(), im.height(), QImage::Format_RGB888 };
             painter->drawImage(m_targetRect, outIm, QRect(QPoint(), QSize(1280, 720)));
         }
-        
-        /*else
-            painter->drawImage(m_targetRect, im, QRect(QPoint(), QSize(1280, 720)));*/
-
-        /*if (first) {
-            first = false;
-            m_pipeline->initialize(Utils::getImgRawData(im, QImage::Format_RGBA8888));
-        }*/
 
 
         m_currentFrame.unmap();

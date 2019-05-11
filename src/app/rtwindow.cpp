@@ -5,17 +5,34 @@
 #include <QPainter>
 #include <QPaintEvent>
 #include <QVideoSurfaceFormat>
+#include <QQuickWidget>
+#include <QPushButton>
+#include <QQmlEngine>
+#include "qmlrenderer/qmlrenderer.h"
 
 
 RTWindow::RTWindow(QWidget* parent): QWidget(parent)
 {
+    m_graphicsRenderer = new QmlRenderer(this);
+    m_graphicsRenderer->loadQml(QUrl::fromLocalFile(
+        "C:/Users/Sony/source/repos/RT-graphics-insertion/RT-graphics-insertion/src/scene/main.qml"
+    ));
+
     m_currentCamera = nullptr;
     m_processing = new VideoProcessingSurface(this);
 
+    m_transformView = new QQuickWidget(this);
+    m_transformView->setVisible(false);
+    m_transformView->setClearColor(Qt::transparent);
+    m_transformView->setAttribute(Qt::WA_AlwaysStackOnTop, true);
+    m_transformView->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    m_transformView->setSource(QUrl::fromLocalFile(":/RTgraphicsinsertion/qml/main.qml"));
+    
     auto layout = new QHBoxLayout(this);
     m_cameraSelection = new QComboBox{ this };
     
     layout->addWidget(m_cameraSelection);
+    layout->addWidget(m_transformView);
     this->setLayout(layout);
     
     // add camera selections items to combobox
@@ -24,6 +41,14 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_camerasList.append(new QCamera(cameraInfo, this));
     }
 
+    /*connect(button, &QPushButton::clicked, [quick]() {
+        qDebug() << "dfsdf";
+        quick->setSource(QUrl());
+        quick->engine()->clearComponentCache();
+        quick->setSource(QUrl::fromLocalFile("C:/Users/Sony/source/repos/RT-graphics-insertion/RT-graphics-insertion/src/qml/main.qml"));
+
+    });*/
+
     // connections
     connect(m_cameraSelection, QOverload<int>::of(&QComboBox::activated),
         [this](int index) {
@@ -31,6 +56,9 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         qDebug() << m_currentCamera;
         m_currentCamera->setViewfinder(m_processing);
         m_currentCamera->start();
+        m_cameraSelection->setVisible(false);
+        m_transformView->setVisible(true);
+        m_graphicsRenderer->start();
     });
 
     
@@ -66,7 +94,7 @@ void RTWindow::paintEvent(QPaintEvent *event)
                 painter.fillRect(rect, brush);
         }
 
-        m_processing->paint(&painter);
+        m_processing->paint(&painter, m_graphicsRenderer->currentFrame());
     }
     else {
         painter.fillRect(event->rect(), palette().background());

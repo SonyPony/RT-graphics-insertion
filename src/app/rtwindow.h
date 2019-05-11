@@ -3,6 +3,8 @@
 #include <QComboBox> 
 #include <QCameraInfo>
 #include "videoprocessingsurface.h"
+#include <QQuickWidget>
+#include "qmlrenderer/qmlrenderer.h"
 
 
 class RTWindow : public QWidget
@@ -13,6 +15,8 @@ class RTWindow : public QWidget
         QList<QCamera*> m_camerasList;
         QComboBox* m_cameraSelection;
         VideoProcessingSurface* m_processing;
+        QQuickWidget* m_transformView;
+        QmlRenderer* m_graphicsRenderer;
 
         QCamera* m_currentCamera;
 

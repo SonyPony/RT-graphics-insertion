@@ -1,4 +1,6 @@
 <RCC>
-    <qresource prefix="RTgraphicsinsertion">
+    <qresource prefix="/RTgraphicsinsertion">
+        <file>qml/main.qml</file>
+        <file>qml/view/TransformView.qml</file>
     </qresource>
 </RCC>

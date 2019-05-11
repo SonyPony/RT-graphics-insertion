@@ -1,0 +1,39 @@
+#pragma once
+#include <QObject>
+#include <QOpenGLContext>
+#include <QOffscreenSurface>
+#include <QQuickRenderControl>
+#include <QQmlEngine>
+#include <QQuickWindow>
+#include <QOpenGLFramebufferObject>
+#include <QQmlComponent>
+
+
+class QmlRenderer : public QObject
+{
+    Q_OBJECT
+
+    private:
+        QOpenGLFramebufferObject* m_fbo;
+        QOpenGLContext* m_context;
+        QOffscreenSurface* m_surface;
+        QQuickRenderControl* m_renderControl;
+
+        QQmlEngine* m_qmlEngine;
+        QQmlComponent* m_qmlComponent;
+        QQuickWindow* m_qmlWindow;
+        QImage m_currentFrame;
+
+    public:
+        QmlRenderer(QObject* parent = nullptr);
+        ~QmlRenderer();
+
+        QImage currentFrame() const;
+
+    private slots:
+        void renderNextFrame();
+
+    public slots:
+        bool loadQml(const QUrl& url);
+        void start();
+};
