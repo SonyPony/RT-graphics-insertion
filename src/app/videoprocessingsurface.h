@@ -19,6 +19,10 @@ class VideoProcessingSurface: public QAbstractVideoSurface
         uint8_t* m_graphics;
 
         uint8_t* m_out;
+        bool m_initializedBgModel;
+        int m_grabbedInitFrameI;
+        bool m_initRequest;
+        QImage m_test;
 
     public:
         VideoProcessingSurface(QWidget* widget, QObject* parent = nullptr);
@@ -36,5 +40,8 @@ class VideoProcessingSurface: public QAbstractVideoSurface
         void updateVideoRect();
 
         void paint(QPainter *painter);
+
+public slots:
+    void initBgModel();
 };
 

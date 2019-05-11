@@ -32,17 +32,35 @@ __global__ void k_segment(uchar4* input, uchar4* model, uint8_t* dest, int curre
 
     // update
     RandState localRandState = randState[id];
-    uint8_t rand = Gpu::Utils::devRand(localRandState) * 16;
+    uint8_t rand = Gpu::Utils::devRand(localRandState) * ViBe::PHI;
     if (rand == 0 && !isForeground) {
-        for (int i = 0; i < 3; i++)
-            model[id + currentSample + i * FRAME_SIZE] = inputPixel;
+        model[id + currentSample * FRAME_SIZE] = inputPixel;
     }
 
-    rand = Gpu::Utils::devRand(localRandState) * 16;
-    // todo change to something like stencil?
-    if (rand == 0 && !isForeground) {
-        for (int i = 0; i < 3; i++)
-            model[id + currentSample + i * FRAME_SIZE] = inputPixel;
+    randState[id] = localRandState;
+}
+
+__global__ void k_updateNeighbours(uint8_t* segMask, uchar4* model, int currentSample, RandState* randState) {
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = x + y * FRAME_WIDTH;
+
+    const uchar4 inputPixel = model[id + currentSample * FRAME_SIZE];
+
+    RandState localRandState = randState[id];
+    constexpr int dx[4] = {-1, 0, 1, 0 };
+    constexpr int dy[4] = { 0, 1, 0, -1 };
+
+    const uint8_t neighbourIndex = Gpu::Utils::devRand(localRandState) * 4;
+    const uint8_t updateIProb = Gpu::Utils::devRand(localRandState) * ViBe::PHI;
+
+    if (updateIProb == 0 && segMask[id] == BACKGROUND) {
+        const int ndx = dx[neighbourIndex];
+        const int ndy = dy[neighbourIndex];
+
+        if (x + ndx < 0 || x + ndx > FRAME_WIDTH - 1 || y + ndy < 0 || y + ndy > FRAME_HEIGHT - 1)
+            return;
+        model[x + ndx + (y + ndy) * FRAME_WIDTH + currentSample * FRAME_SIZE] = inputPixel;
     }
 
     randState[id] = localRandState;
@@ -61,6 +79,7 @@ __global__ void k_initBackgroundModelSamples(uchar4* input, uchar4* dest) {
 
 ViBe::ViBe(uint8_t* d_tempBuffer) {
     m_d_temp = d_tempBuffer;
+    m_sampleIndex = 0;
     // init rand states for vibe update
     Gpu::Utils::generateRandStates(&m_d_randState, FRAME_SIZE);
 
@@ -74,27 +93,21 @@ ViBe::~ViBe()
     cudaFree(m_d_randState);
 }
 
-void ViBe::initialize(uint8_t* backgroundModel) {
+void ViBe::initialize(uchar4* d_backgroundModel) {
     dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };
-    
 
-    const int sampleSize = FRAME_SIZE * Config::CHANNELS_COUNT_INPUT;
-
-    cudaMemcpy(m_d_temp, backgroundModel, FRAME_SIZE * sizeof(uchar4), cudaMemcpyHostToDevice);
-    uchar4* d_bgInit = reinterpret_cast<uchar4*>(m_d_temp);
-
-    k_initBackgroundModelSamples<<<dimGrid, dimBlock>>> (d_bgInit, m_d_bgModel);
+    k_initBackgroundModelSamples<<<dimGrid, dimBlock>>> (d_backgroundModel, m_d_bgModel);
 }
 
 uchar4* ViBe::segment(uchar4* d_input, uint8_t* d_dest) {
     dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };
 
-    k_segment<<<dimGrid, dimBlock>>> (d_input, m_d_bgModel, d_dest, 0, m_d_randState);
+    k_segment<<<dimGrid, dimBlock>>> (d_input, m_d_bgModel, d_dest, m_sampleIndex, m_d_randState);
+    k_updateNeighbours << <dimGrid, dimBlock >> > (d_dest, m_d_bgModel, m_sampleIndex, m_d_randState);
 
-    auto err = cudaGetLastError();
-    std::cout << cudaGetErrorName(err);
+    m_sampleIndex = (m_sampleIndex + 1) % ViBe::SAMPLE_COUNT;
 
     return m_d_bgModel;
 }

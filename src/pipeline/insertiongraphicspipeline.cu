@@ -26,6 +26,7 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline(
     m_trimapGenerator = new TrimapGenerator;
     m_matting = new GlobalSampling(m_d_temp_C4_UC);
     m_composer = new Composer(m_d_temp_C4_UC);
+    m_bgHist = new BgHist;
 
     // alloc buffers on device
     cudaMalloc(reinterpret_cast<void**>(&m_d_frame), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
@@ -61,11 +62,14 @@ InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
     delete m_segmenter;
     delete m_trimapGenerator;
     delete m_composer;
+    delete m_bgHist;
 }
 
 void InsertionGraphicsPipeline::initialize(Byte * frame)
 {
-    m_segmenter->initialize(frame);
+    cudaMemcpy(m_d_temp_C4_UC, frame, FRAME_SIZE * sizeof(uchar4), cudaMemcpyHostToDevice);
+    uchar4* d_bgInit = reinterpret_cast<uchar4*>(m_d_temp_C4_UC);
+    m_segmenter->initialize(d_bgInit);
 }
 
 void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * output)
@@ -73,6 +77,7 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     cudaSetDevice(0);
     dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };
+
 
     // copy data
     cudaMemcpy(m_d_frame, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
@@ -132,4 +137,20 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
 
     cudaMemcpy(output, m_d_output, FRAME_SIZE * 3, cudaMemcpyDeviceToHost);
 
+}
+
+void InsertionGraphicsPipeline::initAddFrame(Byte * frame)
+{
+    cudaMemcpy(m_d_frame, frame, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
+    uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
+
+    m_bgHist->addFrame(d_frame);
+}
+
+void InsertionGraphicsPipeline::computeInitBg()
+{
+    //m_bgHist->reset();
+    uchar4* d_bgInit = reinterpret_cast<uchar4*>(m_d_temp_C4_UC);
+    m_bgHist->computeMode(d_bgInit);
+    m_segmenter->initialize(d_bgInit);
 }

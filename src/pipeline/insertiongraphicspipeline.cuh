@@ -10,6 +10,7 @@
 
 #include "../pipeline/trimap/trimap_generator.cuh"
 #include "../pipeline/composer/composer.cuh"
+#include "../pipeline/bginit/bghist.cuh"
 
 class InsertionGraphicsPipeline
 {
@@ -19,6 +20,7 @@ class InsertionGraphicsPipeline
         TrimapGenerator* m_trimapGenerator;
         GlobalSampling* m_matting;
         Composer* m_composer;
+        BgHist* m_bgHist;
 
         // device buffers
         uint8_t* m_d_frame;
@@ -51,6 +53,9 @@ class InsertionGraphicsPipeline
     public:
         void initialize(Byte* frame);
         void process(Byte* input, Byte* graphics, Byte* output);
+
+        void initAddFrame(Byte* frame);
+        void computeInitBg();
 };
 
 
