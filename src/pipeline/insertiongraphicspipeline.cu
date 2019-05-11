@@ -79,68 +79,56 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     cudaMemset(m_d_temp_C4_UC, 0, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
     cudaMemcpy(m_d_temp_C4_UC, graphics, m_graphicsSize.area() * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
 
-    //try {
-        // transform graphics
-        /*cv::cuda::warpPerspective(
-            cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
-            m_d_transformedGraphics, m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }
-        );*/
-        cv::cuda::warpPerspective(
-            cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
-            cv::cuda::GpuMat{ cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4, m_d_transformedGraphics },
-            m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }
-        );
-        //cudaDeviceSynchronize();
+    // transform graphics
+    cv::cuda::warpPerspective(
+        cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
+        cv::cuda::GpuMat{ cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4, m_d_transformedGraphics },
+        m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }
+    );
 
-        uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
-        //uchar4* d_graphics = reinterpret_cast<uchar4*>(m_d_transformedGraphics.ptr());
-        uchar4* d_graphics = reinterpret_cast<uchar4*>(m_d_transformedGraphics);
+    uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
+    uchar4* d_graphics = reinterpret_cast<uchar4*>(m_d_transformedGraphics);
 
-        // segmentation
-        uchar4* d_background = m_segmenter->segment(d_frame, m_d_segmentation);
+    // segmentation
+    uchar4* d_background = m_segmenter->segment(d_frame, m_d_segmentation);
 
-        // split alpha channel
-        Gpu::Utils::dualCvtRGBA2RGB(
-            dimGrid, dimBlock,
-            d_frame, d_background,
-            m_d_rgbFrame.ptr(), m_d_rgbBg.ptr());
-        Gpu::Utils::cvtRGBA2RGB_A(
-            dimGrid, dimBlock, d_graphics, m_d_rgbGraphics.ptr(), m_d_graphicsAlphaMask
-        );
+    // split alpha channel
+    Gpu::Utils::dualCvtRGBA2RGB(
+        dimGrid, dimBlock,
+        d_frame, d_background,
+        m_d_rgbFrame.ptr(), m_d_rgbBg.ptr());
+    Gpu::Utils::cvtRGBA2RGB_A(
+        dimGrid, dimBlock, d_graphics, m_d_rgbGraphics.ptr(), m_d_graphicsAlphaMask
+    );
 
-        // convert to LAB
-        cv::cuda::cvtColor(m_d_rgbBg, m_d_labBg, cv::COLOR_RGB2Lab);
-        cv::cuda::cvtColor(m_d_rgbFrame, m_d_labFrame, cv::COLOR_RGB2Lab);
-        cv::cuda::cvtColor(m_d_rgbGraphics, m_d_labGraphics, cv::COLOR_RGB2Lab);
-        // TODO graphics
+    // convert to LAB
+    cv::cuda::cvtColor(m_d_rgbBg, m_d_labBg, cv::COLOR_RGB2Lab);
+    cv::cuda::cvtColor(m_d_rgbFrame, m_d_labFrame, cv::COLOR_RGB2Lab);
+    cv::cuda::cvtColor(m_d_rgbGraphics, m_d_labGraphics, cv::COLOR_RGB2Lab);
+        
+    // shadow segmentation
+    m_shadowDectector->process(d_frame, m_d_segmentation, d_background,
+        m_d_labFrame.ptr(), m_d_labBg.ptr(), m_d_shadowIntensity);
 
-        // shadow segmentation
-        m_shadowDectector->process(d_frame, m_d_segmentation, d_background,
-            m_d_labFrame.ptr(), m_d_labBg.ptr(), m_d_shadowIntensity);
+    // mophology refinement
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
+    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
 
-        // mophology refinement
-        ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
-        FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
+    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
 
-        FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
-        ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
+    // trimap generation
+    m_trimapGenerator->generate(m_d_segmentation, m_d_trimap);
 
-        // trimap generation
-        m_trimapGenerator->generate(m_d_segmentation, m_d_trimap);
+    // image matting
+    m_matting->matting(d_frame, m_d_trimap, d_background, m_d_segmentation);
 
-        // image matting
-        m_matting->matting(d_frame, m_d_trimap, d_background, m_d_segmentation);
-
-        // assemble
-        m_composer->compose(
-            m_d_segmentation, m_d_shadowIntensity,
-            m_d_rgbFrame.ptr(), m_d_labFrame.ptr(), m_d_labGraphics.ptr(), m_d_labBg.ptr(),
-            m_d_graphicsAlphaMask, m_d_output
-        );
-    /*}
-    catch (const cv::Exception& ex) {
-        qDebug() << ex.what();
-    }*/
+    // assemble
+    m_composer->compose(
+        m_d_segmentation, m_d_shadowIntensity,
+        m_d_rgbFrame.ptr(), m_d_labFrame.ptr(), m_d_labGraphics.ptr(), m_d_labBg.ptr(),
+        m_d_graphicsAlphaMask, m_d_output
+    );
 
     cudaMemcpy(output, m_d_output, FRAME_SIZE * 3, cudaMemcpyDeviceToHost);
 

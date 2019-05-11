@@ -16,6 +16,7 @@
 #include "opencv2/imgproc.hpp"
 #include <chrono>
 
+
 VideoProcessingSurface::VideoProcessingSurface(QWidget* widget, QObject* parent)
     : QAbstractVideoSurface(parent)
 {
@@ -32,6 +33,8 @@ VideoProcessingSurface::VideoProcessingSurface(QWidget* widget, QObject* parent)
     dstPoints[3] = cv::Point2f{ 1109.f, 664.f };
     m_pipeline = new InsertionGraphicsPipeline(cv::Size{ 200, 200 }, dstPoints);
     m_graphics = Utils::getImgRawData("C:\\_Shared\\CZ_FLAG_FULL.png", QImage::Format_RGBA8888);
+
+    m_out = new uchar[FRAME_SIZE * Config::CHANNELS_COUNT_INPUT];
 }
 
 
@@ -118,61 +121,61 @@ bool VideoProcessingSurface::present(const QVideoFrame &frame)
     }
     else {
         m_currentFrame = frame;
-
+        
         m_widget->repaint(m_targetRect);
 
         return true;
     }
 }
 
+
 void VideoProcessingSurface::paint(QPainter *painter)
 {
-    if (m_currentFrame.map(QAbstractVideoBuffer::ReadOnly)) {
-        const QTransform oldTransform = painter->transform();
+    const QImage::Format imageFormat = 
+        QVideoFrame::imageFormatFromPixelFormat(m_currentFrame.pixelFormat());
 
-        if (surfaceFormat().scanLineDirection() == QVideoSurfaceFormat::BottomToTop) {
-            painter->scale(1, -1);
-            painter->translate(0, -m_widget->height());
-        }
+    if (imageFormat != QImage::Format_Invalid 
+        && m_currentFrame.isValid() && m_currentFrame.map(QAbstractVideoBuffer::ReadOnly)) {
+        bool frameFlipped = false;
 
-        QImage image(
+        if (surfaceFormat().scanLineDirection() == QVideoSurfaceFormat::BottomToTop)
+            frameFlipped = true;
+
+        static int i = 1;
+        static bool first = true;
+
+        // convert video frame to QImage
+        QImage im(
             m_currentFrame.bits(),
             m_currentFrame.width(),
             m_currentFrame.height(),
             m_currentFrame.bytesPerLine(),
-            m_imageFormat);
-        image = image.scaled(QSize(1280, 720));
+            imageFormat);
 
+        im = im.convertToFormat(QImage::Format_RGBA8888);
+        if (frameFlipped)
+            im = im.scaled(QSize(1280, 720)).mirrored();
+        if (im.isNull()) {
+            m_currentFrame.unmap();
+            return;
+        }
 
         // processing
-   
-        QImage im = image;//{ "C:\\_Shared\\matting\\frame2.png" };
-        im = im.convertToFormat(QImage::Format_RGBA8888);
-        uchar* rawData = im.bits();
-        auto out = new uchar[im.width() * im.height() * 4];
-
-
+        if (!first)
+            m_pipeline->process(im.bits(), m_graphics, m_out);
         
-        //uint8_t* bgRaw = Utils::getImgRawData("C:\\_Shared\\matting\\bg.png", QImage::Format_RGBA8888);
-        
-        static bool first = true;
         if (first) {
             first = false;
-            uint8_t* bgRaw = Utils::getImgRawData(im, QImage::Format_RGBA8888);
-            m_pipeline->initialize(bgRaw);
+            m_pipeline->initialize(Utils::getImgRawData(im, QImage::Format_RGBA8888));
         }
-        
-        
-        m_pipeline->process(rawData, m_graphics, out);
 
-        //Format_RGB888
-        QImage outIm{ out, im.width(), im.height(), QImage::Format_RGB888 };
+        std::cout << "Frame: " << (i++) << std::endl;
+        
+        QImage outIm{ m_out, im.width(), im.height(), QImage::Format_RGB888 };
         //--------------------
 
         painter->drawImage(m_targetRect, outIm, QRect(QPoint(), QSize(1280, 720)));
-
-        painter->setTransform(oldTransform);
-
         m_currentFrame.unmap();
     }
+    
 }

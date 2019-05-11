@@ -1,7 +1,6 @@
 #pragma once
 #include <QAbstractVideoSurface>
 #include <QWidget>
-
 #include "../pipeline/insertiongraphicspipeline.cuh"
 
 
@@ -18,6 +17,8 @@ class VideoProcessingSurface: public QAbstractVideoSurface
         QVideoFrame m_currentFrame;
         InsertionGraphicsPipeline* m_pipeline;
         uint8_t* m_graphics;
+
+        uint8_t* m_out;
 
     public:
         VideoProcessingSurface(QWidget* widget, QObject* parent = nullptr);
