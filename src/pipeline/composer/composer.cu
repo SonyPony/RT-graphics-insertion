@@ -116,8 +116,8 @@ void Composer::compose(uint8_t * d_alphaMask, uint8_t * d_shadowIntensity,
     );
 
     // assembling
-    k_asemble << <dimGrid, dimBlock >> > (d_rgbFrame, d_alphaMask, m_d_temp, d_graphicsMask);
-    
+    k_asemble <<<dimGrid, dimBlock >> > (d_rgbFrame, d_alphaMask, m_d_temp, d_graphicsMask);
+
     // add shadows
     cv::cuda::cvtColor(
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC3, d_rgbFrame),
@@ -125,12 +125,12 @@ void Composer::compose(uint8_t * d_alphaMask, uint8_t * d_shadowIntensity,
         cv::COLOR_RGB2Lab
     );
 
-    m_blurFilter->apply(
+    /*m_blurFilter->apply(
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, d_shadowIntensity),
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_temp)
-    );
-    /*k_addShadows << <dimGrid, dimBlock >> > (m_d_temp, d_shadowIntensity, d_graphicsMask);
-
+    );*/
+    k_addShadows << <dimGrid, dimBlock >> > (m_d_temp, d_shadowIntensity, d_graphicsMask);
+    
     cv::cuda::cvtColor(
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC3, m_d_temp),
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC3, d_dest),
