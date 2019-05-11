@@ -47,6 +47,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     this->setLayout(layout);
    
 
+
     // add camera selections items to combobox
     for (const auto& cameraInfo : QCameraInfo::availableCameras()) {
         m_cameraSelection->addItem(cameraInfo.deviceName());
@@ -57,6 +58,8 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_confirmButton->setVisible(false);
         m_transformButton->setVisible(false);
         m_transformView->setVisible(false);
+        m_processing->updateVideoRect(QRect(0, 0, 1920, 1080));
+        this->setWindowState(Qt::WindowFullScreen);
     });
 
     connect(m_transformButton, &QPushButton::clicked, [this]() {
@@ -88,7 +91,14 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     connect(m_cameraSelection, QOverload<int>::of(&QComboBox::activated),
         [this](int index) {
         m_currentCamera = m_camerasList[index];
-        qDebug() << m_currentCamera;
+        m_currentCamera->load();
+        qDebug() << m_currentCamera->supportedViewfinderResolutions();
+        QCameraViewfinderSettings viewFinderSettings;
+        viewFinderSettings.setMinimumFrameRate(15);
+        viewFinderSettings.setMaximumFrameRate(25);
+        viewFinderSettings.setResolution(1920, 720);
+
+
         m_currentCamera->setViewfinder(m_processing);
         m_currentCamera->start();
         m_cameraSelection->setVisible(false);
@@ -133,9 +143,3 @@ void RTWindow::paintEvent(QPaintEvent *event)
     }
 }
 
-void RTWindow::resizeEvent(QResizeEvent *event)
-{
-    QWidget::resizeEvent(event);
-
-    m_processing->updateVideoRect();
-}

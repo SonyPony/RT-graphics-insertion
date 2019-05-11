@@ -36,7 +36,7 @@ public:
 
     bool present(const QVideoFrame &frame) override;
     QRect videoRect() const { return m_targetRect; }
-    void updateVideoRect();
+    void updateVideoRect(const QRect& rect);
 
     void setTransformPoints(cv::Size graphicsSize, cv::Point2f dstPoints[]);
 

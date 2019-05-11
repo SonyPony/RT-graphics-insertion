@@ -88,7 +88,7 @@ bool VideoProcessingSurface::start(const QVideoSurfaceFormat &format)
         QAbstractVideoSurface::start(format);
 
         m_widget->updateGeometry();
-        updateVideoRect();
+        updateVideoRect(QRect(0, 0, 1280, 720));
 
         return true;
     }
@@ -107,12 +107,12 @@ void VideoProcessingSurface::stop()
     m_widget->update();
 }
 
-void VideoProcessingSurface::updateVideoRect()
+void VideoProcessingSurface::updateVideoRect(const QRect& rect)
 {
-    QSize size = QSize(1280, 720);//surfaceFormat().sizeHint();
+    //QSize size = QSize(1280, 720);//surfaceFormat().sizeHint();
     //size.scale(m_widget->size().boundedTo(size), Qt::KeepAspectRatio);
 
-    m_targetRect = QRect(QPoint(0, 0), size);
+    m_targetRect = rect;//QRect(QPoint(0, 0), size);
     //m_targetRect.moveCenter(m_widget->rect().center());
 }
 

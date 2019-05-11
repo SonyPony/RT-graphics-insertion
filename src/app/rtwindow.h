@@ -27,8 +27,7 @@ class RTWindow : public QWidget
         ~RTWindow();
         QSize sizeHint() const override;
 
-protected:
-    void paintEvent(QPaintEvent *event) override;
-    void resizeEvent(QResizeEvent *event) override;
+    protected:
+        void paintEvent(QPaintEvent *event) override;
 };
 
