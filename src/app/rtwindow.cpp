@@ -1,6 +1,6 @@
 #include "rtwindow.h"
 #include <QDebug>
-#include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QCameraInfo>
 #include <QPainter>
 #include <QPaintEvent>
@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QQmlEngine>
 #include "qmlrenderer/qmlrenderer.h"
+#include <QQuickItem>
 
 
 RTWindow::RTWindow(QWidget* parent): QWidget(parent)
@@ -25,29 +26,63 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     m_transformView->setVisible(false);
     m_transformView->setClearColor(Qt::transparent);
     m_transformView->setAttribute(Qt::WA_AlwaysStackOnTop, true);
-    m_transformView->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    m_transformView->setResizeMode(QQuickWidget::SizeViewToRootObject);
     m_transformView->setSource(QUrl::fromLocalFile(":/RTgraphicsinsertion/qml/main.qml"));
     
-    auto layout = new QHBoxLayout(this);
+    auto layout = new QVBoxLayout(this);
     m_cameraSelection = new QComboBox{ this };
+
+    m_confirmButton = new QPushButton("Confim", this);
+    m_confirmButton->setVisible(false);
+
+    m_transformButton = new QPushButton("Transform", this);
+    m_transformButton->setVisible(false);
     
+    layout->setSpacing(0);
+    layout->setMargin(0);
     layout->addWidget(m_cameraSelection);
     layout->addWidget(m_transformView);
+    layout->addWidget(m_transformButton);
+    layout->addWidget(m_confirmButton);
     this->setLayout(layout);
-    
+   
+
     // add camera selections items to combobox
     for (const auto& cameraInfo : QCameraInfo::availableCameras()) {
         m_cameraSelection->addItem(cameraInfo.deviceName());
         m_camerasList.append(new QCamera(cameraInfo, this));
     }
 
-    /*connect(button, &QPushButton::clicked, [quick]() {
-        qDebug() << "dfsdf";
+    connect(m_confirmButton, &QPushButton::clicked, [this]() {
+        m_confirmButton->setVisible(false);
+        m_transformButton->setVisible(false);
+        m_transformView->setVisible(false);
+    });
+
+    connect(m_transformButton, &QPushButton::clicked, [this]() {
+        /*qDebug() << "dfsdf";
         quick->setSource(QUrl());
         quick->engine()->clearComponentCache();
         quick->setSource(QUrl::fromLocalFile("C:/Users/Sony/source/repos/RT-graphics-insertion/RT-graphics-insertion/src/qml/main.qml"));
+        */
 
-    });*/
+        QQuickItem* rootItem = m_transformView->rootObject();
+        //QSize transformViewSize = m_transformView->size();
+        if (rootItem != nullptr) {
+            QVariantList varPoints = rootItem->property("transformPoints").value<QJSValue>().toVariant().toList();
+            cv::Point2f dstPoints[4];
+
+            for (int i = 0; i < 4; i++) {
+                const QPointF qpoint = varPoints.at(i).toPointF();
+                dstPoints[i] = cv::Point2f{ 
+                    (float)qpoint.x(),
+                    (float)qpoint.y()
+                };
+            }
+
+            m_processing->setTransformPoints(cv::Size{ 200, 200 }, dstPoints);
+        }
+    });
 
     // connections
     connect(m_cameraSelection, QOverload<int>::of(&QComboBox::activated),
@@ -58,10 +93,10 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_currentCamera->start();
         m_cameraSelection->setVisible(false);
         m_transformView->setVisible(true);
+        m_confirmButton->setVisible(true);
+        m_transformButton->setVisible(true);
         m_graphicsRenderer->start();
     });
-
-    
 
 }
 
@@ -73,10 +108,7 @@ QSize RTWindow::sizeHint() const
 {
     return m_processing->surfaceFormat().sizeHint();
 }
-//! [2]
 
-
-//! [3]
 void RTWindow::paintEvent(QPaintEvent *event)
 {
     QPainter painter(this);

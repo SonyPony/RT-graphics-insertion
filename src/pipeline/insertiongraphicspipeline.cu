@@ -5,21 +5,31 @@
 #include "../pipeline/segmentation/shadow_detector.cuh"
 #include <QDebug>
 
-
-InsertionGraphicsPipeline::InsertionGraphicsPipeline(
-    cv::Size graphicsSize, cv::Point2f dstPoints[]
-) {
-    cudaMalloc(reinterpret_cast<void**>(&m_d_temp_C4_UC), FRAME_SIZE * 4);  // single channel
-
-
+void InsertionGraphicsPipeline::computeTransMatrix(cv::Size graphicsSize, cv::Point2f dstPoints[]) {
     m_graphicsSize = graphicsSize;
     cv::Point2f srcPoints[4];
     srcPoints[0] = cv::Point2f{ 0.f, 0.f };
     srcPoints[1] = cv::Point2f{ (float)graphicsSize.width, 0.f };
-    srcPoints[2] = cv::Point2f{ 0.f, (float)graphicsSize.height };
-    srcPoints[3] = cv::Point2f{ (float)graphicsSize.width, (float)graphicsSize.height };
+    srcPoints[3] = cv::Point2f{ 0.f, (float)graphicsSize.height };
+    srcPoints[2] = cv::Point2f{ (float)graphicsSize.width, (float)graphicsSize.height };
 
     m_transformMat = cv::getPerspectiveTransform(srcPoints, dstPoints);
+}
+
+InsertionGraphicsPipeline::InsertionGraphicsPipeline(/*
+    cv::Size graphicsSize, cv::Point2f dstPoints[]*/
+) {
+    cudaMalloc(reinterpret_cast<void**>(&m_d_temp_C4_UC), FRAME_SIZE * 4);  // single channel
+
+
+    m_graphicsSize = cv::Size{};
+    /*-cv::Point2f srcPoints[4];
+    srcPoints[0] = cv::Point2f{ 0.f, 0.f };
+    srcPoints[1] = cv::Point2f{ (float)graphicsSize.width, 0.f };
+    srcPoints[2] = cv::Point2f{ 0.f, (float)graphicsSize.height };
+    srcPoints[3] = cv::Point2f{ (float)graphicsSize.width, (float)graphicsSize.height };
+    */
+    m_transformMat = cv::Mat::eye(3, 3, CV_32F);//cv::getPerspectiveTransform(srcPoints, dstPoints);
 
     m_segmenter = new ViBe(m_d_temp_C4_UC);
     m_shadowDectector = new ShadowDetector;

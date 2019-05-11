@@ -21,19 +21,18 @@ VideoProcessingSurface::VideoProcessingSurface(QWidget* widget, QObject* parent)
     : QAbstractVideoSurface(parent)
 {
     m_widget = widget;
-    m_initializedBgModel = false;
-    m_grabbedInitFrameI = 0;
+    m_computedTransM = false;
     m_initRequest = false;
     srand(time(nullptr));
 
-    cv::Point2f dstPoints[4];
+    /*cv::Point2f dstPoints[4];
 
 
     dstPoints[0] = cv::Point2f{ 473.f, 297.f };
     dstPoints[1] = cv::Point2f{ 913.f, 301.f };
     dstPoints[2] = cv::Point2f{ 286.f, 657.f };
-    dstPoints[3] = cv::Point2f{ 1109.f, 664.f };
-    m_pipeline = new InsertionGraphicsPipeline(cv::Size{ 200, 200 }, dstPoints);
+    dstPoints[3] = cv::Point2f{ 1109.f, 664.f };*/
+    m_pipeline = new InsertionGraphicsPipeline(/*cv::Size{ 200, 200 }, dstPoints*/);
     m_graphics = Utils::getImgRawData("C:\\_Shared\\CZ_FLAG_FULL.png", QImage::Format_RGBA8888);
 
     m_out = new uchar[FRAME_SIZE * Config::CHANNELS_COUNT_INPUT];
@@ -42,6 +41,11 @@ VideoProcessingSurface::VideoProcessingSurface(QWidget* widget, QObject* parent)
 
 VideoProcessingSurface::~VideoProcessingSurface()
 {
+}
+
+void VideoProcessingSurface::setTransformPoints(cv::Size graphicsSize, cv::Point2f dstPoints[]) {
+    m_computedTransM = true;
+    m_pipeline->computeTransMatrix(graphicsSize, dstPoints);
 }
 
 QList<QVideoFrame::PixelFormat> VideoProcessingSurface::supportedPixelFormats(
@@ -106,10 +110,10 @@ void VideoProcessingSurface::stop()
 void VideoProcessingSurface::updateVideoRect()
 {
     QSize size = QSize(1280, 720);//surfaceFormat().sizeHint();
-    size.scale(m_widget->size().boundedTo(size), Qt::KeepAspectRatio);
+    //size.scale(m_widget->size().boundedTo(size), Qt::KeepAspectRatio);
 
     m_targetRect = QRect(QPoint(0, 0), size);
-    m_targetRect.moveCenter(m_widget->rect().center());
+    //m_targetRect.moveCenter(m_widget->rect().center());
 }
 
 bool VideoProcessingSurface::present(const QVideoFrame &frame)
@@ -133,6 +137,7 @@ bool VideoProcessingSurface::present(const QVideoFrame &frame)
 
 void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
 {
+
     const QImage::Format imageFormat = 
         QVideoFrame::imageFormatFromPixelFormat(m_currentFrame.pixelFormat());
 
@@ -176,19 +181,20 @@ void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
             std::cout << "Frame computed" << std::endl;
         }
 
-        if(!m_test.isNull())
-            painter->drawImage(m_targetRect, m_test, QRect(QPoint(), QSize(1280, 720)));
+        if(ii && !m_computedTransM)
+            painter->drawImage(m_targetRect, im, QRect(QPoint(), QSize(1280, 720)));
 
         // processing
-        if (ii) {
+        if (ii && m_computedTransM) {
             //std::cout << "Frame: " << (i++) << std::endl;
             uint8_t* rawGraphics = graphics.convertToFormat(QImage::Format_RGBA8888).bits();
             // TODO change to rawGraphics
-            m_pipeline->process(im.bits(), m_graphics, m_out);
+            m_pipeline->process(im.bits(), rawGraphics, m_out);
             
             QImage outIm{ m_out, im.width(), im.height(), QImage::Format_RGB888 };
             painter->drawImage(m_targetRect, outIm, QRect(QPoint(), QSize(1280, 720)));
         }
+
 
 
         m_currentFrame.unmap();

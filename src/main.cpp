@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 
     srand(time(nullptr));
 
-    cv::Point2f dstPoints[4];
+    /*cv::Point2f dstPoints[4];
     
 
     dstPoints[0] = cv::Point2f{ 473.f, 297.f };
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 
     QLabel imageContainer;
     imageContainer.setPixmap(QPixmap::fromImage(outIm));
-    imageContainer.show();
+    imageContainer.show();*/
     //outIm.save("seg3.png");
 
     //w.show();

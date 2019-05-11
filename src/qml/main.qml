@@ -2,8 +2,10 @@ import QtQuick 2.7
 import "view" as View
 
 Item {
-    width: 500
-    height: 500
+    property alias transformPoints: transformView.points
+
+    width: 1280
+    height: 720
 
     /*Rectangle {
         opacity: 0.5
@@ -21,7 +23,5 @@ Item {
         initPoints: [Qt.point(0, 0), Qt.point(20, 0), Qt.point(20, 20), Qt.point(0, 20)]
         color: "orange"
         anchors.fill: parent
-
-        //onPointsChanged: Adapter.transformPoints = points
     }
 }

@@ -5,6 +5,7 @@
 #include "videoprocessingsurface.h"
 #include <QQuickWidget>
 #include "qmlrenderer/qmlrenderer.h"
+#include <QPushButton>
 
 
 class RTWindow : public QWidget
@@ -17,7 +18,8 @@ class RTWindow : public QWidget
         VideoProcessingSurface* m_processing;
         QQuickWidget* m_transformView;
         QmlRenderer* m_graphicsRenderer;
-
+        QPushButton* m_confirmButton;
+        QPushButton* m_transformButton;
         QCamera* m_currentCamera;
 
     public:

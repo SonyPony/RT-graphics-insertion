@@ -47,7 +47,7 @@ class InsertionGraphicsPipeline
         uint8_t* m_d_temp_C4_UC;
 
     public:
-        InsertionGraphicsPipeline(cv::Size graphicsSize, cv::Point2f dstPoints[]);
+        InsertionGraphicsPipeline(/*cv::Size graphicsSize, cv::Point2f dstPoints[]*/);
         ~InsertionGraphicsPipeline();
 
     public:
@@ -56,6 +56,8 @@ class InsertionGraphicsPipeline
 
         void initAddFrame(Byte* frame);
         void computeInitBg();
+
+        void computeTransMatrix(cv::Size graphicsSize, cv::Point2f dstPoints[]);
 };
 
 

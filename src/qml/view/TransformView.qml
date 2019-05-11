@@ -60,7 +60,7 @@ Item {
             width: component.cornerSize
             height: width
             radius: width
-            color: component.color
+            color: "gray"
             opacity: 0.5
 
             Drag.active: dragArea.drag.active
