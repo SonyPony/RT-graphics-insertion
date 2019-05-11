@@ -45,8 +45,8 @@ __global__ void k_initBestSamples(
     }
      // random init best sample
     RandState localRandState = d_randState[id];
-    const int sampleIndex = Gpu::Utils::devRand(localRandState) * ((*samplesCount) - 1);
-    bestSamplesIndexes[id] = sampleIndex;
+    const int sampleIndex = Gpu::Utils::devRand(localRandState) * ((int)(*samplesCount) - 1);
+    bestSamplesIndexes[id] = min(0, sampleIndex);
 
     d_randState[id] = localRandState;
 }
@@ -155,15 +155,15 @@ __global__ void k_faster_sampleMatch(
     const int id = (blockDim.x * blockIdx.x + threadIdx.x) 
         + (blockDim.y * blockIdx.y + threadIdx.y) * FRAME_WIDTH;
     const int subId = threadIdx.x * threadIdx.y;
+    const int samplesCount = (*p_samplesCount);
 
-    if (id >= (*unknownPixelsCount))
+    if (id >= (*unknownPixelsCount) || samplesCount <= 0)
         return;
     RandState localRandState = d_randState[id];
     UnknownPixel pixelInfo = unknownPixels[id];
     const int pixelId = pixelInfo.x + pixelInfo.y * FRAME_WIDTH;
     int bestSampleIndex = bestSamplesIndexes[pixelId];
     MattingSample sample = mattingSamples[bestSampleIndex];
-    const uint32_t samplesCount = *p_samplesCount;
 
     __shared__ int s_cost[256];
 
@@ -175,54 +175,56 @@ __global__ void k_faster_sampleMatch(
     int sampleIndex;
     float3 F;
     float alpha;
-
+    
     // propagation
     for (int dx = (int)pixelInfo.x - 1; dx <= (int)pixelInfo.x + 1; dx++) {
         for (int dy = (int)pixelInfo.y -1; dy <= (int)pixelInfo.y + 1; dy++) {
             int n_id = dx + dy * FRAME_WIDTH;
 
-            if (d_trimap[n_id] != UNKNOWN)
+            if (dx < 0 || dy < 0 
+                || dx > FRAME_WIDTH - 1 || dy > FRAME_HEIGHT - 1 
+                || d_trimap[n_id] != UNKNOWN)
                 continue;
 
             sampleIndex = bestSamplesIndexes[n_id];
             sample = mattingSamples[sampleIndex];
+
             F = make_float3(sample.R, sample.G, sample.B);
 
             alpha = calculateAlpha(I, F, B);
-
             s_cost[subId] = 10 * colorCost(I, F, B, alpha)
                 + norm3df(
-                    (float)sample.x - (float)pixelInfo.x, 
+                    (float)sample.x - (float)pixelInfo.x,
                     (float)sample.y - (float)pixelInfo.y, 0.f
                 );
 
+            // save best sample
             if (s_cost[subId] < pixelInfo.bestCost) {
                 pixelInfo.bestCost = s_cost[subId];
                 pixelInfo.currentAlpha = alpha * 255;
                 bestSampleIndex = sampleIndex;
             }
-            
         }
     }
-
 
     // random walk
     for (float BK = 1.f; BK * samplesCount > 1.f; BK *= 0.5f) {
         sampleIndex = bestSampleIndex 
             + BK * (Gpu::Utils::devRand(localRandState) * 2.f - 1.f) * (samplesCount - 1);
+        
         if (sampleIndex < 0 || sampleIndex >= samplesCount)
             continue;
         sample = mattingSamples[sampleIndex];
 
         F = make_float3(sample.R, sample.G, sample.B);
-
+       
         alpha = calculateAlpha(I, F, B);
         s_cost[subId] = 10*colorCost(I, F, B, alpha)
             + norm3df(
                 (float)sample.x - (float)pixelInfo.x, 
                 (float)sample.y - (float)pixelInfo.y, 0.f
             );
-
+        
         // save best sample
         if (s_cost[subId] < pixelInfo.bestCost) {
             pixelInfo.bestCost = s_cost[subId];
@@ -262,11 +264,9 @@ void GlobalSampling::matting(uchar4 * d_frame, Byte * d_trimap, uchar4* d_backgr
 {
     dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };
-    
-    //uint32_t samplesCount, unknownPixelsCount;
 
-    cudaMemset(reinterpret_cast<void*>(m_d_samplesCount), 0, sizeof(uint32_t));
-    cudaMemset(reinterpret_cast<void*>(m_d_unknownPixelsCount), 0, sizeof(uint32_t));
+    cudaMemset(m_d_samplesCount, 0, sizeof(uint32_t));
+    cudaMemset(m_d_unknownPixelsCount, 0, sizeof(uint32_t));
 
     // init sample and unkown pixels structures
     k_initializeSampleSet << <dimGrid, dimBlock >> > (
@@ -276,12 +276,6 @@ void GlobalSampling::matting(uchar4 * d_frame, Byte * d_trimap, uchar4* d_backgr
     k_initializeUnknown << <dimGrid, dimBlock >> > (
         d_frame, d_trimap, d_background, m_d_unknownPixels, m_d_unknownPixelsCount
     );
-
-    // copy counters
-    //cudaMemcpy(&unknownPixelsCount, m_d_unknownPixelsCount, sizeof(int), cudaMemcpyDeviceToHost);
-    //cudaMemcpy(&samplesCount, m_d_samplesCount, sizeof(uint32_t), cudaMemcpyDeviceToHost);
-
-    //std::cout << "Uknown" << unknownPixelsCount << std::endl;
 
     // init trimap with random samples
     k_initBestSamples << <dimGrid, dimBlock >> > (
