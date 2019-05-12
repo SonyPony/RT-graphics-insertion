@@ -4,6 +4,8 @@
 #include "../pipeline/morphology/erosionFuncTemplate.h"
 #include "../pipeline/segmentation/shadow_detector.cuh"
 #include <QDebug>
+#include "nppi_geometry_transforms.h"
+
 
 void InsertionGraphicsPipeline::computeTransMatrix(cv::Size graphicsSize, cv::Point2f dstPoints[]) {
     m_graphicsSize = graphicsSize;
@@ -95,12 +97,15 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     cudaMemcpy(m_d_temp_C4_UC, graphics, m_graphicsSize.area() * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
 
     // transform graphics
-    cv::cuda::warpPerspective(
-        cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
-        cv::cuda::GpuMat{ cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4, m_d_transformedGraphics },
-        m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }
-    );
-
+    try {
+        cv::cuda::warpPerspective(
+            cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
+            cv::cuda::GpuMat{ cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4, m_d_transformedGraphics },
+            m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, cv::INTER_NEAREST);
+    }
+    catch (const cv::Exception& ex) {
+        qDebug() << ex.what();
+    }
     uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
     uchar4* d_graphics = reinterpret_cast<uchar4*>(m_d_transformedGraphics);
 
@@ -146,7 +151,6 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     );
 
     cudaMemcpy(output, m_d_output, FRAME_SIZE * 3, cudaMemcpyDeviceToHost);
-
 }
 
 void InsertionGraphicsPipeline::initAddFrame(Byte * frame)
@@ -157,10 +161,11 @@ void InsertionGraphicsPipeline::initAddFrame(Byte * frame)
     m_bgHist->addFrame(d_frame);
 }
 
-void InsertionGraphicsPipeline::computeInitBg()
+void InsertionGraphicsPipeline::computeInitBg(uint8_t* output)
 {
-    //m_bgHist->reset();
     uchar4* d_bgInit = reinterpret_cast<uchar4*>(m_d_temp_C4_UC);
     m_bgHist->computeMode(d_bgInit);
     m_segmenter->initialize(d_bgInit);
+    m_bgHist->reset();
+    cudaMemcpy(output, m_d_temp_C4_UC, FRAME_SIZE * 4, cudaMemcpyDeviceToHost);
 }

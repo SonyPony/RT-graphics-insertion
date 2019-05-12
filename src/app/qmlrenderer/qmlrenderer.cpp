@@ -2,6 +2,7 @@
 #include <QOpenGLFunctions>
 #include <QQuickItem>
 #include <QTimer>
+#include "../../common/config.h"
 
 
 QmlRenderer::QmlRenderer(QObject* parent) : QObject(parent) {
@@ -36,7 +37,7 @@ QmlRenderer::QmlRenderer(QObject* parent) : QObject(parent) {
     m_renderControl->initialize(m_context);
 
     m_fbo = new QOpenGLFramebufferObject{ 
-        QSize{200, 200} ,    // TODO change size
+        QSize{GRAPHICS_WIDTH, GRAPHICS_HEIGHT},
         QOpenGLFramebufferObject::CombinedDepthStencil
     };
     m_qmlWindow->setRenderTarget(m_fbo);
@@ -104,9 +105,8 @@ bool QmlRenderer::loadQml(const QUrl& url) {
     }
 
     qmlRootItem->setParentItem(m_qmlWindow->contentItem());
-    // TODO set size
-    qmlRootItem->setSize(QSize{ 200, 200 });
-    m_qmlWindow->setGeometry(0, 0, 200, 200);
+    qmlRootItem->setSize(QSize{ GRAPHICS_WIDTH, GRAPHICS_HEIGHT });
+    m_qmlWindow->setGeometry(0, 0, GRAPHICS_WIDTH, GRAPHICS_HEIGHT);
 
     return true;
 }

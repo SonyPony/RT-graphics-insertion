@@ -8,41 +8,44 @@ class VideoProcessingSurface : public QAbstractVideoSurface
 {
     Q_OBJECT
 
-private:
-    QWidget* m_widget;
-    QImage::Format m_imageFormat;
-    QRect m_targetRect;
-    QSize m_imageSize;
-    QRect m_sourceRect;
-    QVideoFrame m_currentFrame;
-    InsertionGraphicsPipeline* m_pipeline;
-    uint8_t* m_graphics;
+    public:
+        static constexpr int INIT_FRAMES_COUNT = 300;
 
-    uint8_t* m_out;
-    bool m_computedTransM;
-    bool m_initRequest;
-    QImage m_test;
+    private:
+        QWidget* m_widget;
+        QImage::Format m_imageFormat;
+        QRect m_targetRect;
+        QSize m_imageSize;
+        QRect m_sourceRect;
+        QVideoFrame m_currentFrame;
+        InsertionGraphicsPipeline* m_pipeline;
 
-public:
-    VideoProcessingSurface(QWidget* widget, QObject* parent = nullptr);
-    ~VideoProcessingSurface();
+        uint8_t* m_out;
+        bool m_computedTransM;
+        bool m_initRequest;
+        int m_initFrameIndex;
+        bool m_inited;
 
-    QList<QVideoFrame::PixelFormat> supportedPixelFormats(
-        QAbstractVideoBuffer::HandleType handleType = QAbstractVideoBuffer::NoHandle) const override;
-    bool isFormatSupported(const QVideoSurfaceFormat &format) const override;
+    public:
+        VideoProcessingSurface(QWidget* widget, QObject* parent = nullptr);
+        ~VideoProcessingSurface();
 
-    bool start(const QVideoSurfaceFormat &format) override;
-    void stop() override;
+        QList<QVideoFrame::PixelFormat> supportedPixelFormats(
+            QAbstractVideoBuffer::HandleType handleType = QAbstractVideoBuffer::NoHandle) const override;
+        bool isFormatSupported(const QVideoSurfaceFormat &format) const override;
 
-    bool present(const QVideoFrame &frame) override;
-    QRect videoRect() const { return m_targetRect; }
-    void updateVideoRect(const QRect& rect);
+        bool start(const QVideoSurfaceFormat &format) override;
+        void stop() override;
 
-    void setTransformPoints(cv::Size graphicsSize, cv::Point2f dstPoints[]);
+        bool present(const QVideoFrame &frame) override;
+        QRect videoRect() const { return m_targetRect; }
+        void updateVideoRect(const QRect& rect);
 
-    void paint(QPainter *painter, const QImage& graphics);
+        void setTransformPoints(cv::Size graphicsSize, cv::Point2f dstPoints[]);
 
-public slots:
-    void initBgModel();
+        void paint(QPainter *painter, const QImage& graphics);
+
+    public slots:
+        void initBgModel();
 };
 

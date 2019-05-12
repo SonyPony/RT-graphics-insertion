@@ -20,6 +20,7 @@ class RTWindow : public QWidget
         QmlRenderer* m_graphicsRenderer;
         QPushButton* m_confirmButton;
         QPushButton* m_transformButton;
+        QPushButton* m_initBgButton;
         QCamera* m_currentCamera;
 
     public:

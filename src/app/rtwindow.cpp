@@ -38,15 +38,17 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     m_transformButton = new QPushButton("Transform", this);
     m_transformButton->setVisible(false);
     
+    m_initBgButton = new QPushButton("Init", this);
+    m_initBgButton->setVisible(false);
+
     layout->setSpacing(0);
     layout->setMargin(0);
     layout->addWidget(m_cameraSelection);
     layout->addWidget(m_transformView);
+    layout->addWidget(m_initBgButton);
     layout->addWidget(m_transformButton);
     layout->addWidget(m_confirmButton);
     this->setLayout(layout);
-   
-
 
     // add camera selections items to combobox
     for (const auto& cameraInfo : QCameraInfo::availableCameras()) {
@@ -54,23 +56,21 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_camerasList.append(new QCamera(cameraInfo, this));
     }
 
+    connect(m_initBgButton, &QPushButton::clicked, [this]() {
+        m_processing->initBgModel();
+    });
+
     connect(m_confirmButton, &QPushButton::clicked, [this]() {
         m_confirmButton->setVisible(false);
         m_transformButton->setVisible(false);
         m_transformView->setVisible(false);
+        m_initBgButton->setVisible(false);
         m_processing->updateVideoRect(QRect(0, 0, 1920, 1080));
         this->setWindowState(Qt::WindowFullScreen);
     });
 
     connect(m_transformButton, &QPushButton::clicked, [this]() {
-        /*qDebug() << "dfsdf";
-        quick->setSource(QUrl());
-        quick->engine()->clearComponentCache();
-        quick->setSource(QUrl::fromLocalFile("C:/Users/Sony/source/repos/RT-graphics-insertion/RT-graphics-insertion/src/qml/main.qml"));
-        */
-
         QQuickItem* rootItem = m_transformView->rootObject();
-        //QSize transformViewSize = m_transformView->size();
         if (rootItem != nullptr) {
             QVariantList varPoints = rootItem->property("transformPoints").value<QJSValue>().toVariant().toList();
             cv::Point2f dstPoints[4];
@@ -83,7 +83,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
                 };
             }
 
-            m_processing->setTransformPoints(cv::Size{ 200, 200 }, dstPoints);
+            m_processing->setTransformPoints(cv::Size{ GRAPHICS_WIDTH, GRAPHICS_HEIGHT }, dstPoints);
         }
     });
 
@@ -105,6 +105,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_transformView->setVisible(true);
         m_confirmButton->setVisible(true);
         m_transformButton->setVisible(true);
+        m_initBgButton->setVisible(true);
         m_graphicsRenderer->start();
     });
 
