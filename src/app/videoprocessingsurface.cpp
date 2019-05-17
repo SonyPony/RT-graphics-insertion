@@ -175,8 +175,8 @@ void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
 
         // processing
         if (!m_initRequest && m_inited && m_computedTransM) {
-            uint8_t* rawGraphics = graphics.convertToFormat(QImage::Format_RGBA8888).bits();
-            m_pipeline->process(im.bits(), rawGraphics, m_out);
+			QImage convertedGraphics = graphics.convertToFormat(QImage::Format_RGBA8888);
+            m_pipeline->process(im.bits(), convertedGraphics.bits(), m_out);
             
             QImage outIm{ m_out, im.width(), im.height(), QImage::Format_RGB888 };
             painter->drawImage(
