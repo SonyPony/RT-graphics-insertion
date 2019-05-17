@@ -88,20 +88,20 @@ __global__ void k_asemble(uint8_t* rgbFrame, uint8_t* foregroundMask, uint8_t* r
 
 void Composer::compose(uint8_t * d_alphaMask, uint8_t * d_shadowIntensity, 
     uint8_t * d_rgbFrame, uint8_t * d_labFrame, uint8_t * d_labGraphics, uint8_t * d_labBg,
-    uint8_t * d_graphicsMask, uint8_t * d_dest)
+    uint8_t * d_graphicsMask, uint8_t* d_graphicsAreaMask, uint8_t * d_dest)
 {
     dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };
 
     // texture propagation
     cudaMemset(reinterpret_cast<void*>(m_d_graphicsPixelsCount), 0, sizeof(uint32_t));
-    k_LChannel << <dimGrid, dimBlock >> > (
-        d_labBg, m_d_temp, d_graphicsMask, m_d_graphicsPixelsCount
+    k_LChannel << <DIM_GRID, DIM_BLOCK >> > (
+        d_labBg, m_d_temp, d_graphicsAreaMask, m_d_graphicsPixelsCount
     );
 
     cv::Scalar sumL = cv::cuda::sum(
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, m_d_temp),
-        cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, d_graphicsMask)
+        cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1, d_graphicsAreaMask)
     );
 
     const float u_sumL = sumL.val[0];

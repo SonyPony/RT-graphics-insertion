@@ -29,6 +29,7 @@ class InsertionGraphicsPipeline
         uint8_t* m_d_shadowIntensity;
         uint8_t* m_d_graphicsAlphaMask;
         uint8_t* m_d_output;
+        uint8_t* m_d_graphicsMask;
 
         uint8_t* m_d_transformedGraphics;
 

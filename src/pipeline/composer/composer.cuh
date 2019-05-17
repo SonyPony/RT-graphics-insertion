@@ -34,6 +34,7 @@ class Composer {
             uint8_t* d_labBg,
         
             uint8_t* d_graphicsMask,
+            uint8_t* d_graphicsAreaMask,
 
             uint8_t* d_dest
         );

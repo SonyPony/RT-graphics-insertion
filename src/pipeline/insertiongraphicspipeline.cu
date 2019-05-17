@@ -16,6 +16,24 @@ void InsertionGraphicsPipeline::computeTransMatrix(cv::Size graphicsSize, cv::Po
     srcPoints[2] = cv::Point2f{ (float)graphicsSize.width, (float)graphicsSize.height };
 
     m_transformMat = cv::getPerspectiveTransform(srcPoints, dstPoints);
+
+    // create graphics mask
+    cv::Mat h_graphicsMask = cv::Mat::zeros(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC1);
+    int fill[] = { 255 };
+    cv::Point i_dstPoint[4];
+    for (int i = 0; i < 4; i++) {
+        i_dstPoint[i].x = dstPoints[i].x;
+        i_dstPoint[i].y = dstPoints[i].y;
+    }
+
+    cv::fillConvexPoly(h_graphicsMask, i_dstPoint, 4, cv::Scalar(255, 255, 255));
+
+    cv::cuda::GpuMat wrapperGraphicsMask = cv::cuda::GpuMat{
+        cv::Size{ FRAME_WIDTH, FRAME_HEIGHT },
+        CV_8UC1,
+        m_d_graphicsMask
+    };
+    wrapperGraphicsMask.upload(h_graphicsMask);
 }
 
 InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
@@ -39,6 +57,8 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
     cudaMalloc(reinterpret_cast<void**>(&m_d_graphicsAlphaMask), FRAME_SIZE);  // single channel
     cudaMalloc(reinterpret_cast<void**>(&m_d_output), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
     cudaMalloc(reinterpret_cast<void**>(&m_d_transformedGraphics), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
+    cudaMalloc(reinterpret_cast<void**>(&m_d_graphicsMask), FRAME_SIZE);
+
 
     m_d_rgbBg = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
     m_d_rgbFrame = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
@@ -58,6 +78,7 @@ InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
     cudaFree(m_d_graphicsAlphaMask);
     cudaFree(m_d_output);
     cudaFree(m_d_transformedGraphics);
+    cudaFree(m_d_graphicsMask);
 
     delete m_matting;
     delete m_shadowDectector;
