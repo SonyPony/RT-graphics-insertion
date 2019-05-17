@@ -18,21 +18,12 @@ void InsertionGraphicsPipeline::computeTransMatrix(cv::Size graphicsSize, cv::Po
     m_transformMat = cv::getPerspectiveTransform(srcPoints, dstPoints);
 }
 
-InsertionGraphicsPipeline::InsertionGraphicsPipeline(/*
-    cv::Size graphicsSize, cv::Point2f dstPoints[]*/
-) {
+InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
     cudaMalloc(reinterpret_cast<void**>(&m_d_temp_C4_UC), FRAME_SIZE * 4);  // single channel
 
-
     m_graphicsSize = cv::Size{};
-    /*-cv::Point2f srcPoints[4];
-    srcPoints[0] = cv::Point2f{ 0.f, 0.f };
-    srcPoints[1] = cv::Point2f{ (float)graphicsSize.width, 0.f };
-    srcPoints[2] = cv::Point2f{ 0.f, (float)graphicsSize.height };
-    srcPoints[3] = cv::Point2f{ (float)graphicsSize.width, (float)graphicsSize.height };
-    */
-    m_transformMat = cv::Mat::eye(3, 3, CV_32F);//cv::getPerspectiveTransform(srcPoints, dstPoints);
 
+    m_transformMat = cv::Mat::eye(3, 3, CV_32F);
     m_segmenter = new ViBe(m_d_temp_C4_UC);
     m_shadowDectector = new ShadowDetector;
     m_trimapGenerator = new TrimapGenerator;
@@ -49,7 +40,6 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline(/*
     cudaMalloc(reinterpret_cast<void**>(&m_d_output), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
     cudaMalloc(reinterpret_cast<void**>(&m_d_transformedGraphics), FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
 
-    //m_d_transformedGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC4);
     m_d_rgbBg = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
     m_d_rgbFrame = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
     m_d_rgbGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
@@ -90,22 +80,22 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     dim3 dimGrid{ 80, 45 };
     dim3 dimBlock{ 16, 16 };
 
-
     // copy data
     cudaMemcpy(m_d_frame, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
     cudaMemset(m_d_temp_C4_UC, 0, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
-    cudaMemcpy(m_d_temp_C4_UC, graphics, m_graphicsSize.area() * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
-
+    cudaMemcpy(
+        m_d_temp_C4_UC, 
+        graphics, 
+        GRAPHICS_WIDTH * GRAPHICS_HEIGHT * Config::CHANNELS_COUNT_INPUT, 
+        cudaMemcpyHostToDevice
+    );
+    
     // transform graphics
-    try {
-        cv::cuda::warpPerspective(
-            cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
-            cv::cuda::GpuMat{ cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4, m_d_transformedGraphics },
-            m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, cv::INTER_NEAREST);
-    }
-    catch (const cv::Exception& ex) {
-        qDebug() << ex.what();
-    }
+    cv::cuda::warpPerspective(
+        cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
+        cv::cuda::GpuMat{ cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC4, m_d_transformedGraphics },
+        m_transformMat, cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, cv::INTER_NEAREST);
+    
     uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
     uchar4* d_graphics = reinterpret_cast<uchar4*>(m_d_transformedGraphics);
 
