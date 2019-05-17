@@ -62,7 +62,8 @@ __global__ void k_segmentShadow(short2* frameGrads,
         && segmentationMask[id] == FOREGROUND
         && labFramePixel.x >= ShadowDetector::LIGHTNESS_THRESHOLD
         && labBgPixel.x > labFramePixel.x
-        && textureDist < ShadowDetector::TEXTURE_RADIUS) {
+        && textureDist < ShadowDetector::TEXTURE_RADIUS
+    ) {
         segmentationMask[id] = 0;
         shadowVal = labBgPixel.x - labFramePixel.x;
     }
