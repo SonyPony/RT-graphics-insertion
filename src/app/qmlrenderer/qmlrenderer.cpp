@@ -79,7 +79,7 @@ void QmlRenderer::renderNextFrame() {
     }
 
     // request next frame
-    QTimer::singleShot(20, this, &QmlRenderer::renderNextFrame);
+    QTimer::singleShot(35, this, &QmlRenderer::renderNextFrame);
 }
 
 bool QmlRenderer::loadQml(const QUrl& url) {
