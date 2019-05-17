@@ -98,8 +98,6 @@ void InsertionGraphicsPipeline::initialize(Byte * frame)
 void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * output)
 {
     cudaSetDevice(0);
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
 
     // copy data
     cudaMemcpy(m_d_frame, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
@@ -125,11 +123,11 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
 
     // split alpha channel
     Gpu::Utils::dualCvtRGBA2RGB(
-        dimGrid, dimBlock,
+        DIM_GRID, DIM_BLOCK,
         d_frame, d_background,
         m_d_rgbFrame.ptr(), m_d_rgbBg.ptr());
     Gpu::Utils::cvtRGBA2RGB_A(
-        dimGrid, dimBlock, d_graphics, m_d_rgbGraphics.ptr(), m_d_graphicsAlphaMask
+        DIM_GRID, DIM_BLOCK, d_graphics, m_d_rgbGraphics.ptr(), m_d_graphicsAlphaMask
     );
 
     // convert to LAB
@@ -142,11 +140,11 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
         m_d_labFrame.ptr(), m_d_labBg.ptr(), m_d_shadowIntensity);
 
     // mophology refinement
-    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
-    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 3);
+    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 3);
 
-    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
-    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 1);
+    FilterDilation(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
+    ErosionTemplateSharedTwoSteps(m_d_segmentation, m_d_temp_C4_UC, FRAME_WIDTH, FRAME_HEIGHT, 2);
 
     // trimap generation
     m_trimapGenerator->generate(m_d_segmentation, m_d_trimap);
@@ -158,7 +156,7 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     m_composer->compose(
         m_d_segmentation, m_d_shadowIntensity,
         m_d_rgbFrame.ptr(), m_d_labFrame.ptr(), m_d_labGraphics.ptr(), m_d_labBg.ptr(),
-        m_d_graphicsAlphaMask, m_d_output
+        m_d_graphicsAlphaMask, m_d_graphicsMask, m_d_output
     );
 
     cudaMemcpy(output, m_d_output, FRAME_SIZE * 3, cudaMemcpyDeviceToHost);

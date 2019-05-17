@@ -75,24 +75,15 @@ __global__ void k_computeHist(float* hist, uchar4* dest) {
 
 void BgHist::addFrame(uchar4 * d_frame)
 {
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
-
-    k_addFrame << <dimGrid, dimBlock >> > (d_frame, m_d_hist);
+    k_addFrame << <DIM_GRID, DIM_BLOCK >> > (d_frame, m_d_hist);
 }
 
 void BgHist::reset()
 {
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
-
-    k_reset << <dimGrid, dimBlock >> > (m_d_hist);
+    k_reset << <DIM_GRID, DIM_BLOCK >> > (m_d_hist);
 }
 
 void BgHist::computeMode(uchar4 * d_dest)
 {
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
-
-    k_computeHist << <dimGrid, dimBlock >> > (m_d_hist, d_dest);
+    k_computeHist << <DIM_GRID, DIM_BLOCK >> > (m_d_hist, d_dest);
 }

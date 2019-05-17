@@ -156,56 +156,53 @@ __global__ void finish_compute(uchar4* frame, float* AR, float* AG, float* AB, f
 
 void GuidedFilter::filter(uchar4 * d_frame, uint8_t * d_alphaMask, uint8_t * d_output)
 {
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
-
-    prepareData << <dimGrid, dimBlock >> > (d_frame, d_alphaMask, m_d_meanR, m_d_meanG, m_d_meanB, 
+    prepareData << <DIM_GRID, DIM_BLOCK >> > (d_frame, d_alphaMask, m_d_meanR, m_d_meanG, m_d_meanB,
         m_d_varRR, m_d_varRG, m_d_varRB, m_d_varGG, m_d_varGB, m_d_varBB,
         m_d_meanPR, m_d_meanPG, m_d_meanPB
     );
 
     // mean R
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanR, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_meanR, m_d_tempF, 2);
     // mean G
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanG, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_meanG, m_d_tempF, 2);
     // mean B
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanB, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_meanB, m_d_tempF, 2);
 
     // var RR
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_varRR, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_varRR, m_d_tempF, 2);
     // var RG
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_varRG, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_varRG, m_d_tempF, 2);
     // var RB
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_varRB, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_varRB, m_d_tempF, 2);
     // var GG
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_varGG, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_varGG, m_d_tempF, 2);
     // var GB
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_varGB, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_varGB, m_d_tempF, 2);
     // var BB
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_varBB, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_varBB, m_d_tempF, 2);
 
     // mean P
-    Gpu::Utils::k_boxFilter_sep_x<uint8_t, float> << <dimGrid, dimBlock >> > (d_alphaMask, m_d_tempF, 2);
-    Gpu::Utils::k_boxFilter_sep_y<< <dimGrid, dimBlock >> > (m_d_tempF, m_d_meanP, 2);
+    Gpu::Utils::k_boxFilter_sep_x<uint8_t, float> << <DIM_GRID, DIM_BLOCK >> > (d_alphaMask, m_d_tempF, 2);
+    Gpu::Utils::k_boxFilter_sep_y<< <DIM_GRID, DIM_BLOCK >> > (m_d_tempF, m_d_meanP, 2);
 
     // var PR
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanPR, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_meanPR, m_d_tempF, 2);
     // var PG
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanPG, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_meanPG, m_d_tempF, 2);
     // var PB
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_meanPB, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_meanPB, m_d_tempF, 2);
 
-    semi_compute << <dimGrid, dimBlock >> > (m_d_meanR, m_d_meanG, m_d_meanB, m_d_meanP,
+    semi_compute << <DIM_GRID, DIM_BLOCK >> > (m_d_meanR, m_d_meanG, m_d_meanB, m_d_meanP,
         m_d_varRR, m_d_varRG, m_d_varRB, m_d_varGG, m_d_varGB, m_d_varBB,
         m_d_meanPR, m_d_meanPG, m_d_meanPB, m_d_AR, m_d_AG, m_d_AB, m_d_B, 1e-5f
     );
 
     // A
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_AR, m_d_tempF, 2);
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_AG, m_d_tempF, 2);
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_AB, m_d_tempF, 2);
-    Gpu::Utils::boxFilter<float>(dimGrid, dimBlock, m_d_B, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_AR, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_AG, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_AB, m_d_tempF, 2);
+    Gpu::Utils::boxFilter<float>(DIM_GRID, DIM_BLOCK, m_d_B, m_d_tempF, 2);
 
-    finish_compute << <dimGrid, dimBlock >> > (d_frame, m_d_AR, m_d_AG, m_d_AB, m_d_B, d_output);
+    finish_compute << <DIM_GRID, DIM_BLOCK >> > (d_frame, m_d_AR, m_d_AG, m_d_AB, m_d_B, d_output);
 }
 

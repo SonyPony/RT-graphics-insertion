@@ -94,18 +94,12 @@ ViBe::~ViBe()
 }
 
 void ViBe::initialize(uchar4* d_backgroundModel) {
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
-
-    k_initBackgroundModelSamples<<<dimGrid, dimBlock>>> (d_backgroundModel, m_d_bgModel);
+    k_initBackgroundModelSamples<<<DIM_GRID, DIM_BLOCK >>> (d_backgroundModel, m_d_bgModel);
 }
 
 uchar4* ViBe::segment(uchar4* d_input, uint8_t* d_dest) {
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
-
-    k_segment<<<dimGrid, dimBlock>>> (d_input, m_d_bgModel, d_dest, m_sampleIndex, m_d_randState);
-    k_updateNeighbours << <dimGrid, dimBlock >> > (d_dest, m_d_bgModel, m_sampleIndex, m_d_randState);
+    k_segment<<<DIM_GRID, DIM_BLOCK >>> (d_input, m_d_bgModel, d_dest, m_sampleIndex, m_d_randState);
+    k_updateNeighbours << <DIM_GRID, DIM_BLOCK >> > (d_dest, m_d_bgModel, m_sampleIndex, m_d_randState);
 
     m_sampleIndex = (m_sampleIndex + 1) % ViBe::SAMPLE_COUNT;
 

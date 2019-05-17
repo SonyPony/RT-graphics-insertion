@@ -72,18 +72,14 @@ __global__ void k_segmentShadow(short2* frameGrads,
 void ShadowDetector::process(uchar4* frame, uint8_t * d_segmentationMask, uchar4* d_bgModel, 
     uint8_t* labFrame, uint8_t* labBg, uint8_t * dest)
 {
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
-
-
-    k_grayscaleInputs << <dimGrid, dimBlock >> > (frame, d_bgModel, m_d_grayFrame,
+    k_grayscaleInputs << <DIM_GRID, DIM_BLOCK >> > (frame, d_bgModel, m_d_grayFrame,
         m_d_grayBg
     );
 
-    Gpu::Utils::gradients(dimGrid, dimBlock, m_d_grayFrame, m_d_temp16, m_d_gradsFrame);
-    Gpu::Utils::gradients(dimGrid, dimBlock, m_d_grayBg, m_d_temp16, m_d_gradsBg);
+    Gpu::Utils::gradients(DIM_GRID, DIM_BLOCK, m_d_grayFrame, m_d_temp16, m_d_gradsFrame);
+    Gpu::Utils::gradients(DIM_GRID, DIM_BLOCK, m_d_grayBg, m_d_temp16, m_d_gradsBg);
 
-    k_segmentShadow << <dimGrid, dimBlock >> > (m_d_gradsFrame, m_d_gradsBg, 
+    k_segmentShadow << <DIM_GRID, DIM_BLOCK >> > (m_d_gradsFrame, m_d_gradsBg, 
         d_segmentationMask, dest, labFrame, labBg);
 }
 

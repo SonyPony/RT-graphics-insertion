@@ -262,29 +262,26 @@ __global__ void k_renderMatting(
 
 void GlobalSampling::matting(uchar4 * d_frame, Byte * d_trimap, uchar4* d_background, Byte * d_output)
 {
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
-
     cudaMemset(m_d_samplesCount, 0, sizeof(uint32_t));
     cudaMemset(m_d_unknownPixelsCount, 0, sizeof(uint32_t));
 
     // init sample and unkown pixels structures
-    k_initializeSampleSet << <dimGrid, dimBlock >> > (
+    k_initializeSampleSet << <DIM_GRID, DIM_BLOCK >> > (
         d_frame, d_trimap, m_d_mattingSamples, m_d_samplesCount
     );
 
-    k_initializeUnknown << <dimGrid, dimBlock >> > (
+    k_initializeUnknown << <DIM_GRID, DIM_BLOCK >> > (
         d_frame, d_trimap, d_background, m_d_unknownPixels, m_d_unknownPixelsCount
     );
 
     // init trimap with random samples
-    k_initBestSamples << <dimGrid, dimBlock >> > (
+    k_initBestSamples << <DIM_GRID, DIM_BLOCK >> > (
         d_trimap, m_d_mattingSamples, m_d_samplesCount, m_d_bestSamplesIndexes, m_d_randStates
     );
 
     // sample patch
     for (int i = 0; i < 10; i++) {
-        k_faster_sampleMatch << <dimGrid, dimBlock >> > (
+        k_faster_sampleMatch << <DIM_GRID, DIM_BLOCK >> > (
             d_trimap, m_d_bestSamplesIndexes, m_d_mattingSamples, m_d_samplesCount,
             m_d_unknownPixels, m_d_unknownPixelsCount, m_d_randStates
         );
@@ -292,7 +289,7 @@ void GlobalSampling::matting(uchar4 * d_frame, Byte * d_trimap, uchar4* d_backgr
 
     // render alpha mask
     cudaMemset(m_d_temp, 0, FRAME_SIZE);
-    k_renderMatting << <dimGrid, dimBlock >> > (
+    k_renderMatting << <DIM_GRID, DIM_BLOCK >> > (
         d_trimap, m_d_unknownPixels, m_d_unknownPixelsCount, m_d_temp
     );
 

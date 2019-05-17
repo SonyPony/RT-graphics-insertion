@@ -3,12 +3,24 @@
 
 #include <stdint.h>
 
-#define FRAME_WIDTH 1280
-#define FRAME_HEIGHT 720
+/*#define FRAME_WIDTH 1280
+#define FRAME_HEIGHT 720*/
 #define FRAME_SIZE (FRAME_WIDTH * FRAME_HEIGHT)
 #define GRAPHICS_OPACITY 1.0f
-#define GRAPHICS_WIDTH 200
-#define GRAPHICS_HEIGHT 200
+/*#define GRAPHICS_WIDTH 1280
+#define GRAPHICS_HEIGHT 720
+
+#define DIM_GRID dim3{ 80, 45 }
+#define DIM_BLOCK dim3{ 16, 16 }*/
+
+#define FRAME_WIDTH 1920
+#define FRAME_HEIGHT 1080
+
+#define GRAPHICS_WIDTH 1280
+#define GRAPHICS_HEIGHT 720
+
+#define DIM_GRID dim3{ 120, 135 }
+#define DIM_BLOCK dim3{ 16, 8 }
 
 class Config {
     public:

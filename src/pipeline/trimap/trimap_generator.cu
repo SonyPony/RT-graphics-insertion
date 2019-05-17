@@ -50,12 +50,9 @@ __global__ void k_assembleTrimap(uint8_t* currentTrimap, uint8_t* dilatatedEdges
 
 void TrimapGenerator::generate(uint8_t* d_segmentationMask, uint8_t * d_dest)
 {
-    dim3 dimGrid{ 80, 45 };
-    dim3 dimBlock{ 16, 16 };
+    Gpu::Utils::gradients(DIM_GRID, DIM_BLOCK, d_segmentationMask, m_d_temp16, m_d_grads);
 
-    Gpu::Utils::gradients(dimGrid, dimBlock, d_segmentationMask, m_d_temp16, m_d_grads);
-
-    k_thresholdGrads << <dimGrid, dimBlock >> > (m_d_grads, d_dest, m_d_dilatatedEdges, 10);
-    FilterDilation(m_d_dilatatedEdges, m_d_temp, FRAME_WIDTH, FRAME_HEIGHT, 2);
-    k_assembleTrimap << <dimGrid, dimBlock >> > (d_dest, m_d_dilatatedEdges, d_segmentationMask);
+    k_thresholdGrads << <DIM_GRID, DIM_BLOCK >> > (m_d_grads, d_dest, m_d_dilatatedEdges, 10);
+    FilterDilation(m_d_dilatatedEdges, m_d_temp, FRAME_WIDTH, FRAME_HEIGHT, 3);
+    k_assembleTrimap << <DIM_GRID, DIM_BLOCK >> > (d_dest, m_d_dilatatedEdges, d_segmentationMask);
 }
