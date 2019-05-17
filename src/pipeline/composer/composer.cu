@@ -115,7 +115,6 @@ void Composer::compose(uint8_t * d_alphaMask, uint8_t * d_shadowIntensity,
     uint8_t * d_rgbFrame, uint8_t * d_labFrame, uint8_t * d_labGraphics, uint8_t * d_labBg,
     uint8_t * d_graphicsMask, uint8_t* d_graphicsAreaMask, uint8_t * d_dest)
 {
-
     // texture propagation
     cudaMemset(reinterpret_cast<void*>(m_d_graphicsPixelsCount), 0, sizeof(uint32_t));
     k_LChannel << <DIM_GRID, DIM_BLOCK >> > (
@@ -134,6 +133,7 @@ void Composer::compose(uint8_t * d_alphaMask, uint8_t * d_shadowIntensity,
         cv::cuda::GpuMat(cv::Size{ FRAME_WIDTH, FRAME_HEIGHT }, CV_8UC3, m_d_temp),
         cv::COLOR_Lab2RGB
     );
+
     k_textureProp << <DIM_GRID, DIM_BLOCK >> > (
         d_labGraphics, d_labBg, m_d_temp, d_graphicsMask, u_sumL, m_d_graphicsPixelsCount
     );
