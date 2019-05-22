@@ -37,7 +37,8 @@ void InsertionGraphicsPipeline::computeTransMatrix(cv::Size graphicsSize, cv::Po
 }
 
 InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
-    cudaMalloc(reinterpret_cast<void**>(&m_d_temp_C4_UC), FRAME_SIZE * 4);  // single channel
+    cudaMalloc(reinterpret_cast<void**>(&m_d_temp_C4_UC), FRAME_SIZE * 4);  // 4 channel
+    cudaMalloc(reinterpret_cast<void**>(&m_d_temp2_C4_UC), FRAME_SIZE * 4);  // 4 channel
 
     m_graphicsSize = cv::Size{};
 
@@ -73,6 +74,7 @@ InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
     cudaFree(m_d_frame);
     cudaFree(m_d_segmentation);
     cudaFree(m_d_temp_C4_UC);
+    cudaFree(m_d_temp2_C4_UC);
     cudaFree(m_d_trimap);
     cudaFree(m_d_shadowIntensity);
     cudaFree(m_d_graphicsAlphaMask);
@@ -100,7 +102,7 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     cudaSetDevice(0);
 
     // copy data
-    cudaMemcpy(m_d_frame, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
+    cudaMemcpy(m_d_temp2_C4_UC, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
     cudaMemset(m_d_temp_C4_UC, 0, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
     cudaMemcpy(
         m_d_temp_C4_UC, 
@@ -109,6 +111,13 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
         cudaMemcpyHostToDevice
     );
     
+    // TODO some if
+    Gpu::Utils::mirrorV(
+        DIM_GRID, DIM_BLOCK, 
+        reinterpret_cast<uchar4*>(m_d_temp2_C4_UC),
+        reinterpret_cast<uchar4*>(m_d_frame)
+    );
+
     // transform graphics
     cv::cuda::warpPerspective(
         cv::cuda::GpuMat{ m_graphicsSize, CV_8UC4, m_d_temp_C4_UC },
@@ -164,7 +173,13 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
 
 void InsertionGraphicsPipeline::initAddFrame(Byte * frame)
 {
-    cudaMemcpy(m_d_frame, frame, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
+    cudaMemcpy(m_d_temp2_C4_UC, frame, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
+    Gpu::Utils::mirrorV(
+        DIM_GRID, DIM_BLOCK,
+        reinterpret_cast<uchar4*>(m_d_temp2_C4_UC),
+        reinterpret_cast<uchar4*>(m_d_frame)
+    );
+
     uchar4* d_frame = reinterpret_cast<uchar4*>(m_d_frame);
 
     m_bgHist->addFrame(d_frame);

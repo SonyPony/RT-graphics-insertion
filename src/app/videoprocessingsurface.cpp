@@ -145,7 +145,7 @@ void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
 
         im = im.convertToFormat(QImage::Format_RGBA8888);
         if (frameFlipped)
-            im = im.scaled(QSize(FRAME_WIDTH, FRAME_HEIGHT)).mirrored();
+            ;// im = im.scaled(QSize(FRAME_WIDTH, FRAME_HEIGHT)).mirrored();
         if (im.isNull()) {
             m_currentFrame.unmap();
             return;

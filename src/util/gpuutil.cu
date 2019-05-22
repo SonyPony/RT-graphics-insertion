@@ -99,6 +99,14 @@ __global__ void k_cvtRGBA2RGB_a(uchar4* in, uint8_t* out, uint8_t* outAlpha) {
     outAlpha[id] = (inPixel.w != 0) * 255;
 }
 
+__global__ void k_mirrorV(uchar4* in, uchar4* out) {
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = x + y * FRAME_WIDTH;
+
+    out[x + (FRAME_HEIGHT - y - 1) * FRAME_WIDTH] = in[id];
+}
+
 void Gpu::Utils::gradients(dim3 dimGrid, dim3 dimBlock, uint8_t * input, short2 * temp, short2 * dest)
 {
     k_sobel_sep_v << <dimGrid, dimBlock >> > (input, temp);
@@ -113,4 +121,9 @@ void Gpu::Utils::dualCvtRGBA2RGB(dim3 dimGrid, dim3 dimBlock, uchar4* d_in1, uch
 void Gpu::Utils::cvtRGBA2RGB_A(dim3 dimGrid, dim3 dimBlock, uchar4 * d_in, uint8_t * d_out, uint8_t * d_outAlpha)
 {
     k_cvtRGBA2RGB_a << <dimGrid, dimBlock >> > (d_in, d_out, d_outAlpha);
+}
+
+void Gpu::Utils::mirrorV(dim3 dimGrid, dim3 dimBlock, uchar4* d_in, uchar4* d_out) 
+{
+    k_mirrorV << <dimGrid, dimBlock >> > (d_in, d_out);
 }

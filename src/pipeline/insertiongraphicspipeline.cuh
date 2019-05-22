@@ -46,6 +46,7 @@ class InsertionGraphicsPipeline
 
         // temp buffers
         uint8_t* m_d_temp_C4_UC;
+        uint8_t* m_d_temp2_C4_UC;
 
     public:
         InsertionGraphicsPipeline(/*cv::Size graphicsSize, cv::Point2f dstPoints[]*/);

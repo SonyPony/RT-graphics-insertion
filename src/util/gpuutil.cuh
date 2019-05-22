@@ -99,6 +99,11 @@ namespace Gpu {
             dim3 dimGrid, dim3 dimBlock,
             uchar4* d_in, uint8_t* d_out, uint8_t* d_outAlpha
         );
+
+        void mirrorV(
+            dim3 dimGrid, dim3 dimBlock,
+            uchar4* d_in, uchar4* d_out
+        );
     }
 }
 
