@@ -40,7 +40,7 @@ __global__ void k_textureProp(
         const float3 pixel{ rgbGraphics[pixelId], rgbGraphics[pixelId + 1], rgbGraphics[pixelId + 2] };
 
         const float diffL = static_cast<float>(labBg[pixelId]) - avgL;
-        const float ratio = fabs(diffL) / 255.f;
+        const float ratio = (fabs(diffL) / 255.f) * GRAPHICS_OPACITY;
         const float aC = (diffL > 0) ? 255.f : 0.f;
 
         rgbGraphics[pixelId] = clamp(pixel.x + (aC - pixel.x) * ratio, 0.f, 255.f);
@@ -67,7 +67,7 @@ __global__ void k_addShadows(uint8_t* rgbFrame, uint8_t* shadowIntensity, uint8_
         const float3 pixel{ rgbFrame[pixelId], rgbFrame[pixelId + 1], rgbFrame[pixelId + 2] };
         const float diffL = static_cast<float>(shadowIntensity[id]) * GRAPHICS_OPACITY;
 
-        const float ratio = fabs(diffL) / 255.f;
+        const float ratio = (fabs(diffL) / 255.f) * GRAPHICS_OPACITY;
 
         rgbFrame[pixelId] = clamp(pixel.x + pixel.x * ratio, 0.f, 255.f);
         rgbFrame[pixelId + 1] = clamp(pixel.y + pixel.y * ratio, 0.f, 255.f);
