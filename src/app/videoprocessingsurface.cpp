@@ -225,6 +225,7 @@ void VideoProcessingSurface::initBgModel() {
     m_initFrameIndex = 0;
     m_initRequest = true;
     m_inited = false;
+    m_computedTransM = false;
 }
 
 void VideoProcessingSurface::exportBgModel() {
