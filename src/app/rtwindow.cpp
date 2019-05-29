@@ -13,6 +13,7 @@
 #include <qlist.h>
 #include <QShortcut>
 #include <QFileDialog>
+#include <QFormLayout>
 
 
 RTWindow::RTWindow(QWidget* parent): QWidget(parent)
@@ -57,10 +58,39 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     this->setLayout(layout);
 
     // qml scene controls
-    auto qmlSendSignalButton = new QPushButton{ "Send qml signal" };
-    qmlSendSignalButton->setMinimumSize(100, 100);
-    qmlSendSignalButton->show();
+    const QStringList slugList{
+        "dukla-praha", "hk-ivancice", "horka-nad-moravou", "kostelec-na-hane",
+        "lions-hostivice", "litovel-minicup", "praha-chodov", "sk-zeravice",
+        "sokol-sokolnice", "sokol-telnice", "tatran-litovel",
+        "tj-nachod", "valasske-mezirici", "velka-bystrice", "velke-mezirici"
+    };
+    auto qmlControls = new QWidget;
+    auto qmlControlsLayout = new QVBoxLayout{ qmlControls };
 
+    auto qmlSendSignalButton = new QPushButton{ "Send qml signal" };
+    qmlSendSignalButton->setMinimumSize(300, 300);
+    qmlControlsLayout->addWidget(qmlSendSignalButton);
+
+    auto qmlSlugsLayout = new QFormLayout;
+    auto qmlHomeSlugSelection = new QComboBox;
+    auto qmlAwaySlugSelection = new QComboBox;
+
+    qmlHomeSlugSelection->addItems(slugList);
+    qmlAwaySlugSelection->addItems(slugList);
+    m_graphicsRenderer->sceneWrapper()->setHomeSlug(qmlHomeSlugSelection->currentText());
+    m_graphicsRenderer->sceneWrapper()->setAwaySlug(qmlAwaySlugSelection->currentText());
+
+    qmlSlugsLayout->addRow("Home:", qmlHomeSlugSelection);
+    qmlSlugsLayout->addRow("Away:", qmlAwaySlugSelection);
+
+    qmlControlsLayout->addLayout(qmlSlugsLayout);
+    
+    qmlControls->show();
+
+    connect(qmlHomeSlugSelection, qOverload<const QString&>(&QComboBox::activated),
+        m_graphicsRenderer->sceneWrapper(), &QmlSceneWrapper::setHomeSlug);
+    connect(qmlAwaySlugSelection, qOverload<const QString&>(&QComboBox::activated),
+        m_graphicsRenderer->sceneWrapper(), &QmlSceneWrapper::setAwaySlug);
     connect(qmlSendSignalButton, &QPushButton::clicked, 
         m_graphicsRenderer->sceneWrapper(), &QmlSceneWrapper::signal);
 

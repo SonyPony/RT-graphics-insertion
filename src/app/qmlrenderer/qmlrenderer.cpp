@@ -164,3 +164,31 @@ bool QmlRenderer::initQmlRootItem(QObject* qmlRootObject)
 
     return true;
 }
+
+QString QmlSceneWrapper::homeSlug() const
+{
+    return m_homeSlug;
+}
+
+QString QmlSceneWrapper::awaySlug() const
+{
+    return m_awaySlug;
+}
+
+void QmlSceneWrapper::setHomeSlug(const QString & v)
+{
+    if (m_homeSlug == v)
+        return;
+
+    m_homeSlug = v;
+    emit this->homeSlugChanged(v);
+}
+
+void QmlSceneWrapper::setAwaySlug(const QString & v)
+{
+    if (m_awaySlug == v)
+        return;
+
+    m_awaySlug = v;
+    emit this->awaySlugChanged(v);
+}
