@@ -198,6 +198,5 @@ void InsertionGraphicsPipeline::initBgFromImage(uint8_t * input)
 {
     cudaMemcpy(m_d_temp_C4_UC, input, FRAME_SIZE * 4, cudaMemcpyHostToDevice);
     uchar4* d_bgInit = reinterpret_cast<uchar4*>(m_d_temp_C4_UC);
-    m_bgHist->computeMode(d_bgInit);
     m_segmenter->initialize(d_bgInit);
 }
