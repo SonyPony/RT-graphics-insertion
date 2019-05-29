@@ -20,6 +20,8 @@ class Composer {
         uint8_t* m_d_temp;
         uint32_t* m_d_graphicsPixelsCount;
 
+        cv::cuda::GpuMat m_d_sum;
+
     public:
         Composer(uint8_t* d_tempBuffer);
         ~Composer();
@@ -30,7 +32,7 @@ class Composer {
 
             uint8_t * d_rgbFrame,
             uint8_t* d_labFrame,
-            uint8_t* d_labGraphics,
+            uint8_t* d_rgbGraphics,
             uint8_t* d_labBg,
         
             uint8_t* d_graphicsMask,

@@ -39,7 +39,7 @@ class InsertionGraphicsPipeline
 
         cv::cuda::GpuMat m_d_labFrame;
         cv::cuda::GpuMat m_d_labBg;
-        cv::cuda::GpuMat m_d_labGraphics;
+        //cv::cuda::GpuMat m_d_labGraphics;
         
         cv::Mat m_transformMat;
         cv::Size m_graphicsSize;

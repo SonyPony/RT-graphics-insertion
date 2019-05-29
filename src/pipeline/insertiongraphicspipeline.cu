@@ -66,7 +66,7 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
     m_d_rgbGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
     m_d_labBg = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
     m_d_labFrame = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
-    m_d_labGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
+    //m_d_labGraphics = cv::cuda::createContinuous(FRAME_WIDTH, FRAME_HEIGHT, CV_8UC3);
 }
 
 InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
@@ -144,7 +144,7 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     // convert to LAB
     cv::cuda::cvtColor(m_d_rgbBg, m_d_labBg, cv::COLOR_RGB2Lab);
     cv::cuda::cvtColor(m_d_rgbFrame, m_d_labFrame, cv::COLOR_RGB2Lab);
-    cv::cuda::cvtColor(m_d_rgbGraphics, m_d_labGraphics, cv::COLOR_RGB2Lab);
+    //cv::cuda::cvtColor(m_d_rgbGraphics, m_d_labGraphics, cv::COLOR_RGB2Lab);
         
     // shadow segmentation
     m_shadowDectector->process(d_frame, m_d_segmentation, d_background,
@@ -166,7 +166,7 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     // assemble
     m_composer->compose(
         m_d_segmentation, m_d_shadowIntensity,
-        m_d_rgbFrame.ptr(), m_d_labFrame.ptr(), m_d_labGraphics.ptr(), m_d_labBg.ptr(),
+        m_d_rgbFrame.ptr(), m_d_labFrame.ptr(), m_d_rgbGraphics.ptr(), m_d_labBg.ptr(),
         m_d_graphicsAlphaMask, m_d_graphicsMask, m_d_output
     );
 
