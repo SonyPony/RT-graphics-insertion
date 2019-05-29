@@ -11,6 +11,7 @@
 #include "qmlrenderer/qmlrenderer.h"
 #include <QQuickItem>
 #include <qlist.h>
+#include <QShortcut>
 
 
 RTWindow::RTWindow(QWidget* parent): QWidget(parent)
@@ -42,12 +43,12 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     m_initBgButton = new QPushButton("Init", this);
     m_initBgButton->setVisible(false);
 
-    m_reloadSceneButton = new QPushButton("Reload scene", this);
-    m_reloadSceneButton->setVisible(false);
+    m_loadBgModel = new QPushButton("Reload scene", this);
+    m_loadBgModel->setVisible(false);
 
     for (auto w : QList<QWidget*>{ 
         m_initBgButton, m_transformButton,
-        m_confirmButton, m_reloadSceneButton 
+        m_confirmButton, m_loadBgModel 
     }) {
         w->setMaximumWidth(150);
     }
@@ -58,7 +59,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     layout->addWidget(m_transformView);
     layout->addWidget(m_initBgButton, 0, Qt::AlignHCenter);
     layout->addWidget(m_transformButton, 0, Qt::AlignHCenter);
-    layout->addWidget(m_reloadSceneButton, 0, Qt::AlignHCenter);
+    layout->addWidget(m_loadBgModel, 0, Qt::AlignHCenter);
     layout->addWidget(m_confirmButton, 0, Qt::AlignHCenter);
     this->setLayout(layout);
 
@@ -68,7 +69,8 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_camerasList.append(new QCamera(cameraInfo, this));
     }
 
-    connect(m_reloadSceneButton, &QPushButton::clicked, [this]() {
+    auto reloadQmlShortcut = new QShortcut{ QKeySequence{"Ctrl+R"}, this };
+    connect(reloadQmlShortcut, &QShortcut::activated, [this]() {
         m_graphicsRenderer->reload();
     });
 
@@ -81,7 +83,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_transformButton->setVisible(false);
         m_transformView->setVisible(false);
         m_initBgButton->setVisible(false);
-        m_reloadSceneButton->setVisible(false);
+        m_loadBgModel->setVisible(false);
         m_processing->updateVideoRect(QRect(0, 0, 1920, 1080));
         this->setWindowState(Qt::WindowFullScreen);
     });
@@ -123,7 +125,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_confirmButton->setVisible(true);
         m_transformButton->setVisible(true);
         m_initBgButton->setVisible(true);
-        m_reloadSceneButton->setVisible(true);
+        m_loadBgModel->setVisible(true);
 
         m_graphicsRenderer->start();
     });

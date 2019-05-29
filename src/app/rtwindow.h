@@ -22,7 +22,7 @@ class RTWindow : public QWidget
         QPushButton* m_confirmButton;
         QPushButton* m_transformButton;
         QPushButton* m_initBgButton;
-        QPushButton* m_reloadSceneButton;
+        QPushButton* m_loadBgModel;
         QCamera* m_currentCamera;
 
     public:
