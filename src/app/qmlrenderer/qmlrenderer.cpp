@@ -8,6 +8,7 @@
 QmlRenderer::QmlRenderer(QObject* parent) : QObject(parent) {
     m_qmlComponent = nullptr;
     m_qmlRootItem = nullptr;
+    m_rendering = false;
 
     QSurfaceFormat format;
     format.setDepthBufferSize(16);
@@ -58,14 +59,18 @@ QmlRenderer::~QmlRenderer() {
     delete m_context;
 }
 
-void QmlRenderer::renderNextFrame() {
+
+QImage QmlRenderer::renderFrame()
+{
+    if (!m_rendering)
+        return QImage{};
     if (!m_context->makeCurrent(m_surface)) {
         qDebug() << "Failed to make current surface.";
-        return;
+        return QImage{};
     }
 
     m_renderControl->polishItems();
-    if(m_renderControl->sync())
+    if (m_renderControl->sync())
         m_renderControl->render();
 
     m_qmlWindow->resetOpenGLState();
@@ -79,8 +84,13 @@ void QmlRenderer::renderNextFrame() {
         m_fbo->release();
     }
 
+    return m_currentFrame;
+}
+
+void QmlRenderer::renderNextFrame() {
+    this->renderFrame();
     // request next frame
-    QTimer::singleShot(35, this, &QmlRenderer::renderNextFrame);
+    QTimer::singleShot(40, this, &QmlRenderer::renderNextFrame);
 }
 
 bool QmlRenderer::loadQml(const QUrl& url) {
@@ -98,7 +108,12 @@ bool QmlRenderer::loadQml(const QUrl& url) {
     return true;
 }
 
-void QmlRenderer::start() {
+void QmlRenderer::startRender() {
+    m_rendering = true;
+}
+
+void QmlRenderer::startGrabbing() {
+    this->startRender();
     this->renderNextFrame();
 }
 

@@ -25,6 +25,7 @@ class QmlRenderer : public QObject
         QImage m_currentFrame;
 
         QQuickItem* m_qmlRootItem;
+        bool m_rendering;
 
         bool initQmlRootItem(QObject* qmlRootObject);
 
@@ -33,12 +34,14 @@ class QmlRenderer : public QObject
         ~QmlRenderer();
 
         QImage currentFrame() const;
+        QImage renderFrame();
 
     private slots:
         void renderNextFrame();
 
     public slots:
         bool loadQml(const QUrl& url);
-        void start();
+        void startGrabbing();
+        void startRender();
         void reload();
 };

@@ -132,7 +132,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_initBgButton->setVisible(true);
         m_loadBgModel->setVisible(true);
 
-        m_graphicsRenderer->start();
+        m_graphicsRenderer->startRender();
     });
 
 }
@@ -164,7 +164,7 @@ void RTWindow::paintEvent(QPaintEvent *event)
                 painter.fillRect(rect, brush);
         }
 
-        m_processing->paint(&painter, m_graphicsRenderer->currentFrame());
+        m_processing->paint(&painter, m_graphicsRenderer->renderFrame());
     }
     else {
         painter.fillRect(event->rect(), palette().background());
