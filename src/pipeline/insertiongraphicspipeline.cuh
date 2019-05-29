@@ -58,6 +58,7 @@ class InsertionGraphicsPipeline
 
         void initAddFrame(Byte* frame);
         void computeInitBg(uint8_t* output);
+        void initBgFromImage(uint8_t* input);
 
         void computeTransMatrix(cv::Size graphicsSize, cv::Point2f dstPoints[]);
 };

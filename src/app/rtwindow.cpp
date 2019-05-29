@@ -12,6 +12,7 @@
 #include <QQuickItem>
 #include <qlist.h>
 #include <QShortcut>
+#include <QFileDialog>
 
 
 RTWindow::RTWindow(QWidget* parent): QWidget(parent)
@@ -43,7 +44,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     m_initBgButton = new QPushButton("Init", this);
     m_initBgButton->setVisible(false);
 
-    m_loadBgModel = new QPushButton("Reload scene", this);
+    m_loadBgModel = new QPushButton("Load Bg", this);
     m_loadBgModel->setVisible(false);
 
     for (auto w : QList<QWidget*>{ 
@@ -72,6 +73,13 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     auto reloadQmlShortcut = new QShortcut{ QKeySequence{"Ctrl+R"}, this };
     connect(reloadQmlShortcut, &QShortcut::activated, [this]() {
         m_graphicsRenderer->reload();
+    });
+
+    connect(m_loadBgModel, &QPushButton::clicked, [this]() {
+        const QString filename = QFileDialog::getOpenFileName(
+            this, "Load background model", QString{}, "Image Files (*.png)"
+        );
+        m_processing->initBgModelFromImage(QImage{ filename });
     });
 
     connect(m_initBgButton, &QPushButton::clicked, [this]() {

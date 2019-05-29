@@ -47,5 +47,6 @@ class VideoProcessingSurface : public QAbstractVideoSurface
 
     public slots:
         void initBgModel();
+        void initBgModelFromImage(const QImage& img);
 };
 

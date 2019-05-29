@@ -164,14 +164,18 @@ void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
             std::cout << "Frame computing... " << std::endl;
             m_pipeline->computeInitBg(m_out);
             std::cout << "Frame computed" << std::endl;
+            QImage bgModel{ m_out, im.width(), im.height(), QImage::Format_RGBA8888 };
+            bgModel.save("bg-models/bg.png");
         }
 
-        if(m_inited && !m_computedTransM)
+        if (m_inited && !m_computedTransM) {
+            QImage bgModel{ m_out, im.width(), im.height(), QImage::Format_RGBA8888 };
             painter->drawImage(
-                m_targetRect, 
-                QImage{ m_out, im.width(), im.height(), QImage::Format_RGBA8888 }, 
+                m_targetRect,
+                bgModel,
                 QRect(QPoint(), QSize(FRAME_WIDTH, FRAME_HEIGHT))
             );
+        }
 
         // processing
         if (!m_initRequest && m_inited && m_computedTransM) {
@@ -191,6 +195,17 @@ void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
         m_currentFrame.unmap();
     }
     
+}
+
+void VideoProcessingSurface::initBgModelFromImage(const QImage & img)
+{
+    m_inited = true;
+    m_initRequest = false;
+
+    QImage bg = img.convertToFormat(QImage::Format_RGBA8888);
+    memcpy(m_out, bg.bits(), 4 * FRAME_SIZE);
+    std::cout << "Background model loaded. " << std::endl;
+    m_pipeline->initBgFromImage(bg.bits());
 }
 
 void VideoProcessingSurface::initBgModel() {
