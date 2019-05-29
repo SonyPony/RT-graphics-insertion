@@ -56,6 +56,14 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
 
     this->setLayout(layout);
 
+    // qml scene controls
+    auto qmlSendSignalButton = new QPushButton{ "Send qml signal" };
+    qmlSendSignalButton->setMinimumSize(100, 100);
+    qmlSendSignalButton->show();
+
+    connect(qmlSendSignalButton, &QPushButton::clicked, 
+        m_graphicsRenderer->sceneWrapper(), &QmlSceneWrapper::signal);
+
     // add camera selections items to combobox
     for (const auto& cameraInfo : QCameraInfo::availableCameras()) {
         m_cameraSelection->addItem(cameraInfo.deviceName());

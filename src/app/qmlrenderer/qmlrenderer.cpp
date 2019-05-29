@@ -3,12 +3,15 @@
 #include <QQuickItem>
 #include <QTimer>
 #include "../../common/config.h"
+#include <qqmlcontext.h>
 
 
 QmlRenderer::QmlRenderer(QObject* parent) : QObject(parent) {
     m_qmlComponent = nullptr;
     m_qmlRootItem = nullptr;
     m_rendering = false;
+
+    m_sceneWrapper = new QmlSceneWrapper{ this };
 
     QSurfaceFormat format;
     format.setDepthBufferSize(16);
@@ -33,6 +36,9 @@ QmlRenderer::QmlRenderer(QObject* parent) : QObject(parent) {
 
     if (!m_qmlEngine->incubationController())
         m_qmlEngine->setIncubationController(m_qmlWindow->incubationController());
+
+    m_qmlContext = new QQmlContext{ m_qmlEngine->rootContext() };
+    m_qmlContext->setContextProperty("sceneWrapper", m_sceneWrapper);
 
     // connect OpenGL with QML
     m_context->makeCurrent(m_surface);
@@ -101,7 +107,7 @@ bool QmlRenderer::loadQml(const QUrl& url) {
         return false;
     }
 
-    QObject* qmlRootObject = m_qmlComponent->create();
+    QObject* qmlRootObject = m_qmlComponent->create(m_qmlContext);
     if(!this->initQmlRootItem(qmlRootObject))
         return false;
 
@@ -124,7 +130,12 @@ void QmlRenderer::reload() {
     qDebug() << "Reloading..." << qmlUrl;
     m_qmlEngine->clearComponentCache();
     m_qmlComponent->loadUrl(qmlUrl, QQmlComponent::PreferSynchronous);
-    this->initQmlRootItem(m_qmlComponent->create());
+    this->initQmlRootItem(m_qmlComponent->create(m_qmlContext));
+}
+
+QmlSceneWrapper * QmlRenderer::sceneWrapper() const
+{
+    return m_sceneWrapper;
 }
 
 QImage QmlRenderer::currentFrame() const {

@@ -8,6 +8,15 @@
 #include <QOpenGLFramebufferObject>
 #include <QQmlComponent>
 
+class QmlSceneWrapper : public QObject {
+    Q_OBJECT
+
+    public:
+        QmlSceneWrapper(QObject* parent = nullptr): QObject{parent} {}
+
+    signals:
+        void signal();
+};
 
 class QmlRenderer : public QObject
 {
@@ -25,7 +34,9 @@ class QmlRenderer : public QObject
         QImage m_currentFrame;
 
         QQuickItem* m_qmlRootItem;
+        QQmlContext* m_qmlContext;
         bool m_rendering;
+        QmlSceneWrapper* m_sceneWrapper;
 
         bool initQmlRootItem(QObject* qmlRootObject);
 
@@ -33,6 +44,7 @@ class QmlRenderer : public QObject
         QmlRenderer(QObject* parent = nullptr);
         ~QmlRenderer();
 
+        QmlSceneWrapper* sceneWrapper() const;
         QImage currentFrame() const;
         QImage renderFrame();
 
