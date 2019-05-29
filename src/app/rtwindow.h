@@ -19,7 +19,7 @@ class RTWindow : public QWidget
         VideoProcessingSurface* m_processing;
         QQuickWidget* m_transformView;
         QmlRenderer* m_graphicsRenderer;
-        QPushButton* m_confirmButton;
+        QComboBox* m_confirmButton;
         QPushButton* m_transformButton;
         QPushButton* m_initBgButton;
         QPushButton* m_loadBgModel;

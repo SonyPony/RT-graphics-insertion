@@ -14,6 +14,8 @@
 #include <QShortcut>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QScreen>
+#include <QApplication>
 
 
 RTWindow::RTWindow(QWidget* parent): QWidget(parent)
@@ -36,7 +38,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     auto layout = new QVBoxLayout(this);
     m_cameraSelection = new QComboBox{ this };
 
-    m_confirmButton = new QPushButton("Confim", this);
+    m_confirmButton = new QComboBox(this);
     m_transformButton = new QPushButton("Transform", this);
     m_initBgButton = new QPushButton("Init", this);
     m_loadBgModel = new QPushButton("Load Bg", this);
@@ -87,6 +89,11 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     
     qmlControls->show();
 
+    QStringList screensList;
+    for (auto s : QApplication::screens())
+        screensList.append(s->name());
+    m_confirmButton->addItems(screensList);
+
     connect(qmlHomeSlugSelection, qOverload<const QString&>(&QComboBox::activated),
         m_graphicsRenderer->sceneWrapper(), &QmlSceneWrapper::setHomeSlug);
     connect(qmlAwaySlugSelection, qOverload<const QString&>(&QComboBox::activated),
@@ -123,7 +130,15 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_processing->initBgModel();
     });
 
-    connect(m_confirmButton, &QPushButton::clicked, [this]() {
+    connect(m_confirmButton, qOverload<const QString&>(&QComboBox::activated), [this](const QString& screenName) {
+        for (int i = 0; i < QApplication::screens().count(); i++) {
+            QScreen* screen = QApplication::screens().at(i);
+            if (screen->name() == screenName) {
+                qDebug() << "Show on screen" << screenName << screen->geometry();
+                this->windowHandle()->setScreen(screen);
+            }
+        }
+        
         m_confirmButton->setVisible(false);
         m_transformButton->setVisible(false);
         m_transformView->setVisible(false);
