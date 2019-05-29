@@ -84,7 +84,9 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         const QString filename = QFileDialog::getOpenFileName(
             this, "Load background model", QString{}, "Image Files (*.png)"
         );
-        m_processing->initBgModelFromImage(QImage{ filename });
+        QImage bgModel{ filename };
+        if(!bgModel.isNull())
+            m_processing->initBgModelFromImage(bgModel);
     });
 
     connect(m_initBgButton, &QPushButton::clicked, [this]() {
