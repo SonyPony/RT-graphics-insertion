@@ -97,7 +97,7 @@ void InsertionGraphicsPipeline::initialize(Byte * frame)
     m_segmenter->initialize(d_bgInit);
 }
 
-void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * output)
+void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * output, Byte* bgOut)
 {
     cudaSetDevice(0);
 
@@ -129,6 +129,8 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
 
     // segmentation
     uchar4* d_background = m_segmenter->segment(d_frame, m_d_segmentation);
+    if(bgOut != nullptr)
+        cudaMemcpy(bgOut, d_background, FRAME_SIZE * 4, cudaMemcpyDeviceToHost);
 
     // split alpha channel
     Gpu::Utils::dualCvtRGBA2RGB(

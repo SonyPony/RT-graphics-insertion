@@ -36,32 +36,24 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     m_cameraSelection = new QComboBox{ this };
 
     m_confirmButton = new QPushButton("Confim", this);
-    m_confirmButton->setVisible(false);
-
     m_transformButton = new QPushButton("Transform", this);
-    m_transformButton->setVisible(false);
-    
     m_initBgButton = new QPushButton("Init", this);
-    m_initBgButton->setVisible(false);
-
     m_loadBgModel = new QPushButton("Load Bg", this);
-    m_loadBgModel->setVisible(false);
-
-    for (auto w : QList<QWidget*>{ 
-        m_initBgButton, m_transformButton,
-        m_confirmButton, m_loadBgModel 
-    }) {
-        w->setMaximumWidth(150);
-    }
 
     layout->setSpacing(0);
     layout->setMargin(0);
     layout->addWidget(m_cameraSelection);
     layout->addWidget(m_transformView);
-    layout->addWidget(m_initBgButton, 0, Qt::AlignHCenter);
-    layout->addWidget(m_transformButton, 0, Qt::AlignHCenter);
-    layout->addWidget(m_loadBgModel, 0, Qt::AlignHCenter);
-    layout->addWidget(m_confirmButton, 0, Qt::AlignHCenter);
+
+    for (auto w : QList<QWidget*>{ 
+        m_initBgButton, m_transformButton,
+        m_loadBgModel, m_confirmButton
+    }) {
+        w->setMaximumWidth(150);
+        w->setVisible(false);
+        layout->addWidget(w, 0, Qt::AlignHCenter);
+    }
+
     this->setLayout(layout);
 
     // add camera selections items to combobox
@@ -73,6 +65,11 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     auto reloadQmlShortcut = new QShortcut{ QKeySequence{"Ctrl+R"}, this };
     connect(reloadQmlShortcut, &QShortcut::activated, [this]() {
         m_graphicsRenderer->reload();
+    });
+
+    auto saveBgShortcut = new QShortcut{ QKeySequence{"Ctrl+S"}, this };
+    connect(saveBgShortcut, &QShortcut::activated, [this]() {
+        m_processing->exportBgModel();
     });
 
     connect(m_loadBgModel, &QPushButton::clicked, [this]() {

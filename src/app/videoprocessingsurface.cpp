@@ -25,10 +25,12 @@ VideoProcessingSurface::VideoProcessingSurface(QWidget* widget, QObject* parent)
     m_initFrameIndex = 0;
     m_initRequest = false;
     m_inited = false;
+    m_exportBgRequest = false;
     srand(time(nullptr));
 
     m_pipeline = new InsertionGraphicsPipeline;
     m_out = new uchar[FRAME_SIZE * Config::CHANNELS_COUNT_INPUT];
+    m_bgModelBuffer = new uchar[FRAME_SIZE * Config::CHANNELS_COUNT_INPUT];
 }
 
 VideoProcessingSurface::~VideoProcessingSurface()
@@ -180,7 +182,12 @@ void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
         // processing
         if (!m_initRequest && m_inited && m_computedTransM) {
 			QImage convertedGraphics = graphics.convertToFormat(QImage::Format_RGBA8888);
-            m_pipeline->process(im.bits(), convertedGraphics.bits(), m_out);
+            m_pipeline->process(
+                im.bits(), 
+                convertedGraphics.bits(), 
+                m_out, 
+                (m_exportBgRequest) ?m_bgModelBuffer :nullptr
+            );
             
             QImage outIm{ m_out, im.width(), im.height(), QImage::Format_RGB888 };
             painter->drawImage(
@@ -188,9 +195,15 @@ void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
                 outIm, 
                 QRect(QPoint(), QSize(FRAME_WIDTH, FRAME_HEIGHT))
             );
+
+            if (m_exportBgRequest) {
+                QImage bgModel{ m_bgModelBuffer, FRAME_WIDTH, FRAME_HEIGHT, QImage::Format_RGBA8888 };
+                bgModel.save("bg-models/bg_temp.png");
+
+                std::cout << "Model saved." << std::endl;
+                m_exportBgRequest = false;
+            }
         }
-
-
 
         m_currentFrame.unmap();
     }
@@ -212,4 +225,8 @@ void VideoProcessingSurface::initBgModel() {
     m_initFrameIndex = 0;
     m_initRequest = true;
     m_inited = false;
+}
+
+void VideoProcessingSurface::exportBgModel() {
+    m_exportBgRequest = true;
 }

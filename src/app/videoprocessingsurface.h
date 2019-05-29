@@ -21,10 +21,12 @@ class VideoProcessingSurface : public QAbstractVideoSurface
         InsertionGraphicsPipeline* m_pipeline;
 
         uint8_t* m_out;
+        uint8_t* m_bgModelBuffer;
         bool m_computedTransM;
         bool m_initRequest;
         int m_initFrameIndex;
         bool m_inited;
+        bool m_exportBgRequest;
 
     public:
         VideoProcessingSurface(QWidget* widget, QObject* parent = nullptr);
@@ -46,6 +48,7 @@ class VideoProcessingSurface : public QAbstractVideoSurface
         void paint(QPainter *painter, const QImage& graphics);
 
     public slots:
+        void exportBgModel();
         void initBgModel();
         void initBgModelFromImage(const QImage& img);
 };
