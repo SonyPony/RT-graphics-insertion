@@ -7,6 +7,7 @@
 
 QmlRenderer::QmlRenderer(QObject* parent) : QObject(parent) {
     m_qmlComponent = nullptr;
+    m_qmlRootItem = nullptr;
 
     QSurfaceFormat format;
     format.setDepthBufferSize(16);
@@ -91,22 +92,8 @@ bool QmlRenderer::loadQml(const QUrl& url) {
     }
 
     QObject* qmlRootObject = m_qmlComponent->create();
-    if (m_qmlComponent->isError()) {
-        for (const auto& error : m_qmlComponent->errors())
-            qWarning() << "Error: " << error.url() << " - " << error.line() << ": " << error;
+    if(!this->initQmlRootItem(qmlRootObject))
         return false;
-    }
-
-    QQuickItem* qmlRootItem = qobject_cast<QQuickItem*>(qmlRootObject);
-    if (qmlRootItem == nullptr) {
-        qWarning() << "Failed conversion to QQuickItem";
-        delete qmlRootObject;
-        return false;
-    }
-
-    qmlRootItem->setParentItem(m_qmlWindow->contentItem());
-    qmlRootItem->setSize(QSize{ GRAPHICS_WIDTH, GRAPHICS_HEIGHT });
-    m_qmlWindow->setGeometry(0, 0, GRAPHICS_WIDTH, GRAPHICS_HEIGHT);
 
     return true;
 }
@@ -115,6 +102,39 @@ void QmlRenderer::start() {
     this->renderNextFrame();
 }
 
+void QmlRenderer::reload() {
+    const QUrl qmlUrl = m_qmlComponent->url();
+    m_qmlRootItem->deleteLater();
+
+    qDebug() << "Reloading..." << qmlUrl;
+    m_qmlEngine->clearComponentCache();
+    m_qmlComponent->loadUrl(qmlUrl, QQmlComponent::PreferSynchronous);
+    this->initQmlRootItem(m_qmlComponent->create());
+}
+
 QImage QmlRenderer::currentFrame() const {
     return m_currentFrame;
+}
+
+bool QmlRenderer::initQmlRootItem(QObject* qmlRootObject)
+{
+    if (m_qmlComponent->isError()) {
+        for (const auto& error : m_qmlComponent->errors())
+            qWarning() << "Error: " << error.url() << " - " << error.line() << ": " << error;
+        return false;
+    }
+
+    m_qmlRootItem = qobject_cast<QQuickItem*>(qmlRootObject);
+
+    if (m_qmlRootItem == nullptr) {
+        qWarning() << "Failed conversion to QQuickItem";
+        delete qmlRootObject;
+        return false;
+    }
+
+    m_qmlRootItem->setParentItem(m_qmlWindow->contentItem());
+    m_qmlRootItem->setSize(QSize{ GRAPHICS_WIDTH, GRAPHICS_HEIGHT });
+    m_qmlWindow->setGeometry(0, 0, GRAPHICS_WIDTH, GRAPHICS_HEIGHT);
+
+    return true;
 }

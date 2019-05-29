@@ -6,6 +6,7 @@
 #include <QQuickWidget>
 #include "qmlrenderer/qmlrenderer.h"
 #include <QPushButton>
+#include <QQuickItem>
 
 
 class RTWindow : public QWidget
@@ -21,6 +22,7 @@ class RTWindow : public QWidget
         QPushButton* m_confirmButton;
         QPushButton* m_transformButton;
         QPushButton* m_initBgButton;
+        QPushButton* m_reloadSceneButton;
         QCamera* m_currentCamera;
 
     public:

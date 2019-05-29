@@ -10,6 +10,7 @@
 #include <QQmlEngine>
 #include "qmlrenderer/qmlrenderer.h"
 #include <QQuickItem>
+#include <qlist.h>
 
 
 RTWindow::RTWindow(QWidget* parent): QWidget(parent)
@@ -41,13 +42,24 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
     m_initBgButton = new QPushButton("Init", this);
     m_initBgButton->setVisible(false);
 
+    m_reloadSceneButton = new QPushButton("Reload scene", this);
+    m_reloadSceneButton->setVisible(false);
+
+    for (auto w : QList<QWidget*>{ 
+        m_initBgButton, m_transformButton,
+        m_confirmButton, m_reloadSceneButton 
+    }) {
+        w->setMaximumWidth(150);
+    }
+
     layout->setSpacing(0);
     layout->setMargin(0);
     layout->addWidget(m_cameraSelection);
     layout->addWidget(m_transformView);
-    layout->addWidget(m_initBgButton);
-    layout->addWidget(m_transformButton);
-    layout->addWidget(m_confirmButton);
+    layout->addWidget(m_initBgButton, 0, Qt::AlignHCenter);
+    layout->addWidget(m_transformButton, 0, Qt::AlignHCenter);
+    layout->addWidget(m_reloadSceneButton, 0, Qt::AlignHCenter);
+    layout->addWidget(m_confirmButton, 0, Qt::AlignHCenter);
     this->setLayout(layout);
 
     // add camera selections items to combobox
@@ -55,6 +67,10 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_cameraSelection->addItem(cameraInfo.deviceName());
         m_camerasList.append(new QCamera(cameraInfo, this));
     }
+
+    connect(m_reloadSceneButton, &QPushButton::clicked, [this]() {
+        m_graphicsRenderer->reload();
+    });
 
     connect(m_initBgButton, &QPushButton::clicked, [this]() {
         m_processing->initBgModel();
@@ -65,6 +81,7 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         m_transformButton->setVisible(false);
         m_transformView->setVisible(false);
         m_initBgButton->setVisible(false);
+        m_reloadSceneButton->setVisible(false);
         m_processing->updateVideoRect(QRect(0, 0, 1920, 1080));
         this->setWindowState(Qt::WindowFullScreen);
     });
@@ -98,14 +115,16 @@ RTWindow::RTWindow(QWidget* parent): QWidget(parent)
         viewFinderSettings.setMaximumFrameRate(25);
         viewFinderSettings.setResolution(1920, 720);
 
-
         m_currentCamera->setViewfinder(m_processing);
         m_currentCamera->start();
         m_cameraSelection->setVisible(false);
+
         m_transformView->setVisible(true);
         m_confirmButton->setVisible(true);
         m_transformButton->setVisible(true);
         m_initBgButton->setVisible(true);
+        m_reloadSceneButton->setVisible(true);
+
         m_graphicsRenderer->start();
     });
 
@@ -124,6 +143,7 @@ void RTWindow::paintEvent(QPaintEvent *event)
 {
     QPainter painter(this);
 
+    //auto start = std::chrono::high_resolution_clock::now();
     if (m_processing->isActive()) {
         const QRect videoRect = m_processing->videoRect();
 
@@ -142,5 +162,7 @@ void RTWindow::paintEvent(QPaintEvent *event)
     else {
         painter.fillRect(event->rect(), palette().background());
     }
+    //using namespace std::chrono;
+    //qDebug() <<  "Whole: " << (duration_cast<milliseconds>(high_resolution_clock::now() - start).count());
 }
 

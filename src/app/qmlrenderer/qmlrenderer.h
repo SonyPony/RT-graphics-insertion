@@ -24,6 +24,10 @@ class QmlRenderer : public QObject
         QQuickWindow* m_qmlWindow;
         QImage m_currentFrame;
 
+        QQuickItem* m_qmlRootItem;
+
+        bool initQmlRootItem(QObject* qmlRootObject);
+
     public:
         QmlRenderer(QObject* parent = nullptr);
         ~QmlRenderer();
@@ -36,4 +40,5 @@ class QmlRenderer : public QObject
     public slots:
         bool loadQml(const QUrl& url);
         void start();
+        void reload();
 };
