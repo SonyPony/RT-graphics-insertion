@@ -35,12 +35,12 @@ __global__ void k_textureProp(
     const int id = x + y * FRAME_WIDTH;
     const int pixelId = id * 3;
     
-    if (graphicsMask[id] == 255) {
+    if (graphicsMask[id] != 0) {
         const float avgL = sumL / static_cast<float>(*graphicsPixelsCount);
         const float3 pixel{ rgbGraphics[pixelId], rgbGraphics[pixelId + 1], rgbGraphics[pixelId + 2] };
 
         const float diffL = static_cast<float>(labBg[pixelId]) - avgL;
-        const float ratio = (fabs(diffL) / 255.f) * GRAPHICS_OPACITY;
+        const float ratio = (fabs(diffL) / (255.f / TEXTURE_ENHANCE_LEVEL));
         const float aC = (diffL > 0) ? 255.f : 0.f;
 
         rgbGraphics[pixelId] = clamp(pixel.x + (aC - pixel.x) * ratio, 0.f, 255.f);
@@ -63,11 +63,11 @@ __global__ void k_addShadows(uint8_t* rgbFrame, uint8_t* shadowIntensity, uint8_
 
     const int pixelId = id * 3;
 
-    if (graphicsMask[id] == 255) {
+    if (graphicsMask[id] != 0) {
         const float3 pixel{ rgbFrame[pixelId], rgbFrame[pixelId + 1], rgbFrame[pixelId + 2] };
-        const float diffL = static_cast<float>(shadowIntensity[id]) * GRAPHICS_OPACITY;
+        const float diffL = static_cast<float>(shadowIntensity[id]);
 
-        const float ratio = (fabs(diffL) / 255.f) * GRAPHICS_OPACITY;
+        const float ratio = (fabs(diffL) / 255.f);
 
         rgbFrame[pixelId] = clamp(pixel.x + pixel.x * ratio, 0.f, 255.f);
         rgbFrame[pixelId + 1] = clamp(pixel.y + pixel.y * ratio, 0.f, 255.f);
@@ -93,10 +93,13 @@ __global__ void k_asemble(uint8_t* rgbFrame, uint8_t* foregroundMask, uint8_t* r
     const float alpha = static_cast<float>(foregroundMask[id]) / 255.f;
 
     float3 resultPixel = framePixel;
+    const float graphicsAlpha = graphicsMask[id];
 
-    if (graphicsMask[id] == 255) {
+    if (graphicsAlpha != 0) {
+        const float graphicsOpacity = (graphicsAlpha / 255.f);
+
         resultPixel = clamp(
-            (1.f - GRAPHICS_OPACITY) * resultPixel  + GRAPHICS_OPACITY * graphicsPixels,
+            (1.f - graphicsOpacity) * resultPixel  + graphicsOpacity * graphicsPixels,
             0.f, 255.f
         );
 

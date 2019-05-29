@@ -96,7 +96,7 @@ __global__ void k_cvtRGBA2RGB_a(uchar4* in, uint8_t* out, uint8_t* outAlpha) {
     out[id * 3 + 1] = inPixel.y;
     out[id * 3 + 2] = inPixel.z;
 
-    outAlpha[id] = (inPixel.w != 0) * 255;
+    outAlpha[id] = inPixel.w;
 }
 
 __global__ void k_mirrorV(uchar4* in, uchar4* out) {
