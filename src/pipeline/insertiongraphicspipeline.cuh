@@ -11,6 +11,9 @@
 #include "../pipeline/trimap/trimap_generator.cuh"
 #include "../pipeline/composer/composer.cuh"
 #include "../pipeline/bginit/bghist.cuh"
+#include <windows.h>
+#include <cuda_gl_interop.h>
+
 
 class InsertionGraphicsPipeline
 {
@@ -61,6 +64,9 @@ class InsertionGraphicsPipeline
         void initBgFromImage(uint8_t* input);
 
         void computeTransMatrix(cv::Size graphicsSize, cv::Point2f dstPoints[]);
+
+        void createGraphicsResource(GLuint texId, cudaGraphicsMapFlags mapFlags);
+        void deleteGraphicsResource();
 };
 
 

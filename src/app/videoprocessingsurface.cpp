@@ -31,6 +31,8 @@ VideoProcessingSurface::VideoProcessingSurface(QWidget* widget, QObject* parent)
     m_pipeline = new InsertionGraphicsPipeline;
     m_out = new uchar[FRAME_SIZE * Config::CHANNELS_COUNT_INPUT];
     m_bgModelBuffer = new uchar[FRAME_SIZE * Config::CHANNELS_COUNT_INPUT];
+
+    m_pipeline->createGraphicsResource(1, cudaGraphicsMapFlagsReadOnly);
 }
 
 VideoProcessingSurface::~VideoProcessingSurface()

@@ -22,6 +22,9 @@
 #define DIM_GRID dim3{ 120, 135 }
 #define DIM_BLOCK dim3{ 16, 8 }
 
+#define DIM_GRID_GRAPHICS dim3{ 80, 90 }
+#define DIM_BLOCK_GRAPHICS dim3{ 16, 8 }
+
 class Config {
     public:
         static constexpr uint8_t CHANNELS_COUNT_INPUT = 4;     // in bytes

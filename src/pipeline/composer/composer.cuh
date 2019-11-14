@@ -21,6 +21,7 @@ class Composer {
         uint32_t* m_d_graphicsPixelsCount;
 
         cv::cuda::GpuMat m_d_sum;
+        cudaChannelFormatDesc m_channelDesc;
 
     public:
         Composer(uint8_t* d_tempBuffer);
@@ -40,4 +41,8 @@ class Composer {
 
             uint8_t* d_dest
         );
+
+        void bindGraphics(cudaArray* graphicsArray);
+        void unbindGraphics();
+        void copyFromTex(uchar4* d_dst);
 };

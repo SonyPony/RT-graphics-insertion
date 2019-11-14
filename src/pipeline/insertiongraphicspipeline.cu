@@ -5,7 +5,10 @@
 #include "../pipeline/segmentation/shadow_detector.cuh"
 #include <QDebug>
 #include "nppi_geometry_transforms.h"
+#include "cuda_runtime.h"
 
+
+cudaGraphicsResource_t g_graphicsRes;
 
 void InsertionGraphicsPipeline::computeTransMatrix(cv::Size graphicsSize, cv::Point2f dstPoints[]) {
     m_graphicsSize = graphicsSize;
@@ -34,6 +37,20 @@ void InsertionGraphicsPipeline::computeTransMatrix(cv::Size graphicsSize, cv::Po
         m_d_graphicsMask
     };
     wrapperGraphicsMask.upload(h_graphicsMask);
+}
+
+void InsertionGraphicsPipeline::createGraphicsResource(GLuint texId, cudaGraphicsMapFlags mapFlags)
+{
+    cudaGraphicsGLRegisterImage(&g_graphicsRes, texId, GL_TEXTURE_2D, mapFlags);
+}
+
+void InsertionGraphicsPipeline::deleteGraphicsResource()
+{
+    if (g_graphicsRes == nullptr)
+        return;
+
+    cudaGraphicsUnregisterResource(g_graphicsRes);
+    g_graphicsRes = nullptr;
 }
 
 InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
@@ -71,6 +88,8 @@ InsertionGraphicsPipeline::InsertionGraphicsPipeline() {
 
 InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
 {
+    this->deleteGraphicsResource();
+
     cudaFree(m_d_frame);
     cudaFree(m_d_segmentation);
     cudaFree(m_d_temp_C4_UC);
@@ -92,6 +111,8 @@ InsertionGraphicsPipeline::~InsertionGraphicsPipeline()
 
 void InsertionGraphicsPipeline::initialize(Byte * frame)
 {
+    cudaGLSetGLDevice(0);
+
     cudaMemcpy(m_d_temp_C4_UC, frame, FRAME_SIZE * sizeof(uchar4), cudaMemcpyHostToDevice);
     uchar4* d_bgInit = reinterpret_cast<uchar4*>(m_d_temp_C4_UC);
     m_segmenter->initialize(d_bgInit);
@@ -101,15 +122,27 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
 {
     cudaSetDevice(0);
 
+    //////////////////////////////////////////////////////////
+    cudaGraphicsResource_t resources[1] = {g_graphicsRes,};
+    cudaGraphicsMapResources(1, resources);
+
+    cudaArray* graphicsArray;
+    cudaGraphicsSubResourceGetMappedArray(&graphicsArray, g_graphicsRes, 0, 0);
+    m_composer->bindGraphics(graphicsArray);
+    
+    //////////////////////////////////////////////////////////
+
     // copy data
     cudaMemcpy(m_d_temp2_C4_UC, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
     cudaMemset(m_d_temp_C4_UC, 0, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
-    cudaMemcpy(
+
+    m_composer->copyFromTex(reinterpret_cast<uchar4*>(m_d_temp_C4_UC));
+    /*cudaMemcpy(
         m_d_temp_C4_UC, 
         graphics, 
         GRAPHICS_WIDTH * GRAPHICS_HEIGHT * Config::CHANNELS_COUNT_INPUT, 
         cudaMemcpyHostToDevice
-    );
+    );*/
     
     // TODO some if
     Gpu::Utils::mirrorV(
@@ -171,6 +204,10 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     );
 
     cudaMemcpy(output, m_d_output, FRAME_SIZE * 3, cudaMemcpyDeviceToHost);
+
+    // TODO Unmap
+    m_composer->unbindGraphics();
+    cudaGraphicsUnmapResources(1, resources);
 }
 
 void InsertionGraphicsPipeline::initAddFrame(Byte * frame)

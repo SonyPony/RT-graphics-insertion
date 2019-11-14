@@ -1,6 +1,7 @@
 #include "composer.cuh"
 #include <QDebug>
 
+texture<uchar4, cudaTextureType2D, cudaReadModeElementType> texRef;
 
 Composer::Composer(uint8_t* d_tempBuffer) {
     m_blurFilter = cv::cuda::createGaussianFilter(CV_8UC1, CV_8UC1, cv::Size{ 5, 5 }, 5);
@@ -16,6 +17,15 @@ Composer::Composer(uint8_t* d_tempBuffer) {
 Composer::~Composer()
 {
     cudaFree(m_d_graphicsPixelsCount);
+}
+
+__global__ void k_copyTex(uchar4* dst) {
+    const int x = blockDim.x * blockIdx.x + threadIdx.x;
+    const int y = blockDim.y * blockIdx.y + threadIdx.y;
+    const int id = x + y * GRAPHICS_WIDTH;
+
+    uchar4 pixel = tex2D(texRef, x, y);
+    dst[id] = pixel;
 }
 
 __global__ void k_LChannel(
@@ -155,4 +165,20 @@ void Composer::compose(uint8_t * d_alphaMask, uint8_t * d_shadowIntensity,
 
     // add shadows
     k_addShadows << <DIM_GRID, DIM_BLOCK >> > (d_rgbFrame, d_shadowIntensity, d_graphicsMask, d_dest);
+}
+
+void Composer::bindGraphics(cudaArray * graphicsArray)
+{
+    //m_channelDesc = cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned);
+    cudaBindTextureToArray(texRef, graphicsArray/*, &m_channelDesc*/);
+}
+
+void Composer::unbindGraphics()
+{
+    cudaUnbindTexture(texRef);
+}
+
+void Composer::copyFromTex(uchar4 * d_dst)
+{
+    k_copyTex << <DIM_GRID_GRAPHICS, DIM_BLOCK_GRAPHICS >> > (d_dst);
 }
