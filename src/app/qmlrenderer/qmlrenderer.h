@@ -47,7 +47,6 @@ class QmlRenderer : public QObject
         QQmlEngine* m_qmlEngine;
         QQmlComponent* m_qmlComponent;
         QQuickWindow* m_qmlWindow;
-        QImage m_currentFrame;
 
         QQuickItem* m_qmlRootItem;
         QQmlContext* m_qmlContext;
@@ -61,8 +60,7 @@ class QmlRenderer : public QObject
         ~QmlRenderer();
 
         QmlSceneWrapper* sceneWrapper() const;
-        QImage currentFrame() const;
-        QImage renderFrame();
+        void renderFrame();
 
     private slots:
         void renderNextFrame();

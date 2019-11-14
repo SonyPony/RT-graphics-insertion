@@ -127,7 +127,7 @@ bool VideoProcessingSurface::present(const QVideoFrame &frame)
 }
 
 
-void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
+void VideoProcessingSurface::paint(QPainter *painter)
 {
 
     const QImage::Format imageFormat = 
@@ -183,10 +183,9 @@ void VideoProcessingSurface::paint(QPainter *painter, const QImage& graphics)
 
         // processing
         if (!m_initRequest && m_inited && m_computedTransM) {
-			QImage convertedGraphics = graphics.convertToFormat(QImage::Format_RGBA8888);
+            using namespace std::chrono;
             m_pipeline->process(
                 im.bits(), 
-                convertedGraphics.bits(), 
                 m_out, 
                 (m_exportBgRequest) ?m_bgModelBuffer :nullptr
             );

@@ -45,7 +45,7 @@ class VideoProcessingSurface : public QAbstractVideoSurface
 
         void setTransformPoints(cv::Size graphicsSize, cv::Point2f dstPoints[]);
 
-        void paint(QPainter *painter, const QImage& graphics);
+        void paint(QPainter *painter);
 
     public slots:
         void exportBgModel();

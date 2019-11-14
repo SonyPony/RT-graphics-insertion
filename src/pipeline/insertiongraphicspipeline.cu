@@ -118,11 +118,11 @@ void InsertionGraphicsPipeline::initialize(Byte * frame)
     m_segmenter->initialize(d_bgInit);
 }
 
-void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * output, Byte* bgOut)
+void InsertionGraphicsPipeline::process(Byte * input, Byte * output, Byte* bgOut)
 {
     cudaSetDevice(0);
 
-    //////////////////////////////////////////////////////////
+    // Map data to CUDA array
     cudaGraphicsResource_t resources[1] = {g_graphicsRes,};
     cudaGraphicsMapResources(1, resources);
 
@@ -130,19 +130,11 @@ void InsertionGraphicsPipeline::process(Byte * input, Byte * graphics, Byte * ou
     cudaGraphicsSubResourceGetMappedArray(&graphicsArray, g_graphicsRes, 0, 0);
     m_composer->bindGraphics(graphicsArray);
     
-    //////////////////////////////////////////////////////////
-
     // copy data
     cudaMemcpy(m_d_temp2_C4_UC, input, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT, cudaMemcpyHostToDevice);
     cudaMemset(m_d_temp_C4_UC, 0, FRAME_SIZE * Config::CHANNELS_COUNT_INPUT);
 
     m_composer->copyFromTex(reinterpret_cast<uchar4*>(m_d_temp_C4_UC));
-    /*cudaMemcpy(
-        m_d_temp_C4_UC, 
-        graphics, 
-        GRAPHICS_WIDTH * GRAPHICS_HEIGHT * Config::CHANNELS_COUNT_INPUT, 
-        cudaMemcpyHostToDevice
-    );*/
     
     // TODO some if
     Gpu::Utils::mirrorV(

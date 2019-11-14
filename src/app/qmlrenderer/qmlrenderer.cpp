@@ -66,31 +66,24 @@ QmlRenderer::~QmlRenderer() {
 }
 
 
-QImage QmlRenderer::renderFrame()
+void QmlRenderer::renderFrame()
 {
     if (!m_rendering)
-        return QImage{};
+        return;
     if (!m_context->makeCurrent(m_surface)) {
         qDebug() << "Failed to make current surface.";
-        return QImage{};
+        return;
     }
 
     m_renderControl->polishItems();
+
     if (m_renderControl->sync())
         m_renderControl->render();
-
+    
     m_qmlWindow->resetOpenGLState();
     QOpenGLFramebufferObject::bindDefault();
 
     m_context->functions()->glFlush();
-
-    if (m_fbo->bind()) {
-        m_currentFrame = m_fbo->toImage();
-
-        m_fbo->release();
-    }
-
-    return m_currentFrame;
 }
 
 void QmlRenderer::renderNextFrame() {
@@ -136,10 +129,6 @@ void QmlRenderer::reload() {
 QmlSceneWrapper * QmlRenderer::sceneWrapper() const
 {
     return m_sceneWrapper;
-}
-
-QImage QmlRenderer::currentFrame() const {
-    return m_currentFrame;
 }
 
 bool QmlRenderer::initQmlRootItem(QObject* qmlRootObject)

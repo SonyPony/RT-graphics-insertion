@@ -57,7 +57,7 @@ class InsertionGraphicsPipeline
 
     public:
         void initialize(Byte* frame);
-        void process(Byte* input, Byte* graphics, Byte* output, Byte* bgOut = nullptr);
+        void process(Byte* input, Byte* output, Byte* bgOut = nullptr);
 
         void initAddFrame(Byte* frame);
         void computeInitBg(uint8_t* output);

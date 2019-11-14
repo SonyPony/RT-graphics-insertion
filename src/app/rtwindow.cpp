@@ -219,7 +219,8 @@ void RTWindow::paintEvent(QPaintEvent *event)
                 painter.fillRect(rect, brush);
         }
 
-        m_processing->paint(&painter, m_graphicsRenderer->renderFrame());
+        m_graphicsRenderer->renderFrame();
+        m_processing->paint(&painter);
     }
     else {
         painter.fillRect(event->rect(), palette().background());
