@@ -20,7 +20,7 @@ Item {
 
     View.TransformView {
         id: transformView
-        initPoints: [Qt.point(0, 0), Qt.point(200, 0), Qt.point(200, 200), Qt.point(0, 200)]
+        initPoints: [Qt.point(0, 0), Qt.point(400, 0), Qt.point(400, 400), Qt.point(0, 400)]
         color: "blue"
         anchors.fill: parent
     }
